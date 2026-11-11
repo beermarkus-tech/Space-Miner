@@ -67,7 +67,7 @@
   .starlist{font-size:12.5px;color:#93a8c6;text-align:center}
   .shophead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}
   .tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}
-  .tabs button{flex:1;font-family:Orbitron;font-size:12px;font-weight:700;letter-spacing:.06em;padding:10px 8px;border-radius:10px;cursor:pointer;
+  .tabs button{flex:1;font-family:Orbitron;font-size:11px;font-weight:700;letter-spacing:.04em;padding:10px 6px;border-radius:10px;cursor:pointer;
     border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#93a8c6;white-space:nowrap}
   .tabs button.on{border-color:var(--cyan);color:var(--cyan);background:rgba(94,240,255,.08)}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
@@ -86,6 +86,13 @@
   .card button.eqb{border-color:rgba(94,240,255,.6);background:rgba(94,240,255,.1);color:var(--cyan)}
   .card button:disabled{opacity:.35;cursor:default}
   .stat{font-size:12px;color:#7ff7ff}
+  .belt{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:4px}
+  .card button.deed{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-color:color-mix(in srgb,var(--rc) 55%,transparent);background:rgba(255,255,255,.03);color:#e9f6ff}
+  .card button.deed small{font-size:10px;color:#ffc845;font-family:'Exo 2'}
+  .card button.deed[data-poor] small{color:#93a8c6}
+  .card button.deed.own{background:color-mix(in srgb,var(--rc) 22%,transparent);border-color:var(--rc);opacity:1}
+  .card button.deed.own small{color:var(--rc)}
+  .card button.deed:disabled:not(.own){opacity:.4}
   textarea.code{width:100%;height:84px;resize:none;background:rgba(0,0,0,.35);color:#9ff6ff;border:1px solid var(--line);border-radius:10px;padding:10px;font:12px ui-monospace,Menlo,monospace;word-break:break-all;touch-action:pan-y;user-select:text;-webkit-user-select:text}
   .row2{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.row2 .btn{flex:1;font-size:13px;padding:11px 10px}
   .msg{font-size:13px;margin-top:8px;min-height:18px}
@@ -348,17 +355,19 @@ function musicUpdate(){if(!AC)return;let w='menu',root=45;
 // ================= game data =================
 const SHIPS=[
   {id:'prospector',name:'Prospector',desc:'Your reliable starter rig.',cost:0,hull:1,shield:1,speed:1,dmg:1,rate:1,r:15,col:'#c8d3e2',acc:'#ff8a3d',len:24,bw:8,span:17,wx:[8,-6,-13,-9],eng:1},
-  {id:'wasp',name:'Wasp',desc:'Fast and agile. Thin armor, +15% fire rate.',cost:2500,hull:.8,shield:1,speed:1.3,dmg:1,rate:1.15,r:13,col:'#ffd84a',acc:'#2a2a2a',len:27,bw:6,span:19,wx:[10,-11,-15,-6],eng:1},
-  {id:'bulwark',name:'Bulwark',desc:'Heavy armor and big shields. Slower.',cost:5000,hull:1.75,shield:1.45,speed:.86,dmg:1.05,rate:1,r:19,col:'#8fa3b8',acc:'#4ff3ff',len:25,bw:11,span:21,wx:[10,0,-14,-12],eng:2},
-  {id:'raptor',name:'Raptor',desc:'Combat frame. +30% damage, faster missiles.',cost:10000,hull:1.3,shield:1.2,speed:1.12,dmg:1.3,rate:1.05,r:16,col:'#ff6a5a',acc:'#ffffff',len:28,bw:7.5,span:20,wx:[9,3,-7,-12],eng:1},
-  {id:'leviathan',name:'Leviathan',desc:'Flagship of the belt. Better at everything.',cost:22000,hull:2.1,shield:1.8,speed:1.1,dmg:1.5,rate:1.12,r:20,col:'#b98cff',acc:'#ffd84a',len:31,bw:10,span:23,wx:[12,-4,-17,-12],eng:2}
+  {id:'wasp',name:'Wasp',desc:'Fast and agile. Thin armor, +15% fire rate.',cost:6000,req:3,hull:.8,shield:1,speed:1.3,dmg:1,rate:1.15,r:13,col:'#ffd84a',acc:'#2a2a2a',len:27,bw:6,span:19,wx:[10,-11,-15,-6],eng:1},
+  {id:'bulwark',name:'Bulwark',desc:'Heavy armor and big shields. Slower.',cost:12000,req:6,hull:1.75,shield:1.45,speed:.86,dmg:1.05,rate:1,r:19,col:'#8fa3b8',acc:'#4ff3ff',len:25,bw:11,span:21,wx:[10,0,-14,-12],eng:2},
+  {id:'raptor',name:'Raptor',desc:'Combat frame. +30% damage, faster missiles.',cost:25000,req:11,hull:1.3,shield:1.2,speed:1.12,dmg:1.3,rate:1.05,r:16,col:'#ff6a5a',acc:'#ffffff',len:28,bw:7.5,span:20,wx:[9,3,-7,-12],eng:1},
+  {id:'leviathan',name:'Leviathan',desc:'Flagship of the belt. Better at everything.',cost:55000,req:17,hull:2.1,shield:1.8,speed:1.1,dmg:1.5,rate:1.12,r:20,col:'#b98cff',acc:'#ffd84a',len:31,bw:10,span:23,wx:[12,-4,-17,-12],eng:2},
+  {id:'valkyrie',name:'Valkyrie',desc:'Elite strike frame. Fast, hard-hitting and well armored.',cost:150000,req:24,hull:2.4,shield:2,speed:1.2,dmg:1.75,rate:1.18,r:18,col:'#4fd6ff',acc:'#ff4fd8',len:33,bw:8.5,span:24,wx:[13,0,-16,-10],eng:2},
+  {id:'sovereign',name:'Sovereign',desc:'The best ship money can buy. Heavy, quick and deadly.',cost:400000,req:32,hull:2.9,shield:2.5,speed:1.16,dmg:2.1,rate:1.25,r:21,col:'#ffd84a',acc:'#b98cff',len:34,bw:11,span:25,wx:[12,-6,-18,-12],eng:2}
 ];
 const WEAPONS=[
   {id:'blaster',name:'Pulse Blaster',desc:'Rapid bolts. Gains extra barrels.',cost:0,ub:110,color:'#5ef0ff'},
-  {id:'scatter',name:'Scatter Cannon',desc:'Shotgun blast. Brutal up close.',cost:900,ub:160,color:'#ffc845'},
-  {id:'laser',name:'Mining Laser',desc:'Continuous beam. Pierces at level 3.',cost:1800,ub:220,color:'#ff4fd8'},
-  {id:'plasma',name:'Plasma Lobber',desc:'Slow orbs that explode in an area.',cost:3200,ub:280,color:'#9dff5a'},
-  {id:'arc',name:'Arc Caster',desc:'Auto-aiming lightning that chains.',cost:5000,ub:340,color:'#b9a8ff'}
+  {id:'scatter',name:'Scatter Cannon',desc:'Shotgun blast. Brutal up close.',cost:1800,req:2,ub:160,color:'#ffc845'},
+  {id:'laser',name:'Mining Laser',desc:'Continuous beam. Pierces at level 3.',cost:3600,req:5,ub:220,color:'#ff4fd8'},
+  {id:'plasma',name:'Plasma Lobber',desc:'Slow orbs that explode in an area.',cost:6400,req:9,ub:280,color:'#9dff5a'},
+  {id:'arc',name:'Arc Caster',desc:'Auto-aiming lightning that chains.',cost:10000,req:13,ub:340,color:'#b9a8ff'}
 ];
 const UPG=[
   {id:'engine',name:'Engines',desc:'Thrust and top speed.',max:5,base:90},
@@ -389,8 +398,20 @@ const quotaOf=n=>Math.round((500+n*150)/10)*10;
 const defendTime=n=>65+Math.min(35,n);
 const stormTime=n=>70+Math.min(20,Math.floor(n/2));
 const escortTime=n=>80+Math.min(20,Math.floor(n/2));
-const upgCost=(u,l)=>Math.round(u.base*Math.pow(1.75,l)/10)*10;
-const wUpCost=(w,l)=>Math.round(w.ub*Math.pow(1.72,l)/10)*10;
+// ---- economy ----
+const upgCost=(u,l)=>Math.round(u.base*2.5*Math.pow(1.9,l)/10)*10;
+const wUpCost=(w,l)=>Math.round(w.ub*2.5*Math.pow(1.85,l)/10)*10;
+// sector you must have reached before buying upgrade level L (index = level after buying)
+const UPG_REQ=[0,0,3,7,12,18,25],WUP_REQ=[0,0,3,7,12,18];
+// overclock: endless extra levels once something is maxed. Gain per level and price:
+const OC_GAIN={engine:.03,shield:.06,hull:.06,magnet:.06,refinery:.04,missile:.06,wing:.08},OC_WEAPON=.05;
+const ocCost=(u,k)=>Math.round(u.base*50*Math.pow(1.5,k)/100)*100;
+const wocCost=(w,k)=>Math.round(w.ub*30*Math.pow(1.5,k)/100)*100;
+// the Belt: buy the deed to any sector you've cleared. Each deed +1% ore value; owning a whole region adds a bonus.
+const deedCost=n=>Math.round(5000*Math.pow(1.13,n)/100)*100;
+const REGION_BONUS=['+10% ore value','+10% weapon damage','+15% hull and shields','+10% fire rate'],REGION_COL=['#5ef0ff','#ff6a5a','#b98cff','#9dffe8'];
+const regionOwned=r=>{for(let i=1;i<=10;i++)if(!deeds.includes(r*10+i))return false;return true};
+const cleared=n=>n<level||!!stars[n];
 
 function wstat(id,L){switch(id){
   case 'blaster':return{dmg:1+.45*L,cd:.22*Math.pow(.88,L),n:[1,1,2,2,3,4][L],spd:900,life:.7};
@@ -450,6 +471,7 @@ function objFor(n){const m=missionOf(n);return{clear:['☄','CLEAR THE FIELD','D
   boss:['☠','BOSS: '+BOSS_NAME[bossOf(n)],bossOf(n)==='warden'?'Destroy the pylons to drop its shield, then hit the core.':'Destroy it. Asteroids optional.']}[m]}
 
 // ================= state =================
+let oc={},deeds=[];
 let state='title',level=1,credits=0,score=0,lives=3,upg={},wl={},weapon='blaster',shipId='prospector',ownedShips=['prospector'],bombs=1,stars={},S={},hull=100,shield=30;
 let ship=null,asteroids=[],bullets=[],ebullets=[],missiles=[],enemies=[],ores=[],pus=[],mines=[],holes=[],blasts=[],arcs=[],parts=[],texts=[],rig=null,beam=null;
 let WORLD=2000,HALF=1000,cam={x:0,y:0},shake=0,levelTime=0,clearT=-1,failT=-1,failReason='',spawnQ=[],spawnT=0,levelStats=null,nebula=null,planet=null,planetPos={x:.75,y:.28};
@@ -458,14 +480,20 @@ let mission='clear',missionT=0,quota=0,quotaGot=0,refillT=0,banner=null,isTouch=
 const SAVE='orerush2_save';
 
 function resetProgress(){level=1;credits=0;score=0;lives=3;upg={};UPG.forEach(u=>upg[u.id]=0);wl={};WEAPONS.forEach(w=>wl[w.id]=-1);wl.blaster=0;weapon='blaster';
-  shipId='prospector';ownedShips=['prospector'];bombs=1;stars={};computeStats();hull=S.hullMax}
+  shipId='prospector';ownedShips=['prospector'];bombs=1;stars={};oc={};deeds=[];computeStats();hull=S.hullMax}
 function computeStats(){const sh=SHIPS.find(s=>s.id===shipId),u=upg;
   S={sh,r:sh.r,thrust:470*(1+.14*u.engine)*sh.speed,maxV:320*(1+.1*u.engine)*sh.speed,shieldMax:Math.round((30+22*u.shield)*sh.shield),shieldRegen:(7+4*u.shield)*sh.shield,
     hullMax:Math.round((100+35*u.hull)*sh.hull),magnet:110+55*u.magnet,refine:1+.12*u.refinery,dmgMul:sh.dmg,rateMul:sh.rate,
-    missileCd:u.missile?Math.max(.9,3.6-.6*(u.missile-1))*(sh.id==='raptor'?.75:1):0,missileN:u.missile>=4?2:1,wing:u.wing}}
-function saveGame(){store.set(SAVE,{v:2,level,credits,score,lives,upg,wl,weapon,shipId,ownedShips,bombs,hull,stars})}
+    missileCd:u.missile?Math.max(.9,3.6-.6*(u.missile-1))*(sh.id==='raptor'?.75:1):0,missileN:u.missile>=4?2:1,wing:u.wing};
+  const o=k=>oc[k]||0,rb=[0,1,2,3].map(regionOwned);
+  S.thrust*=1+OC_GAIN.engine*o('engine');S.maxV*=1+OC_GAIN.engine*o('engine');
+  const sm=(1+OC_GAIN.shield*o('shield'))*(rb[2]?1.15:1);S.shieldMax=Math.round(S.shieldMax*sm);S.shieldRegen*=sm;
+  S.hullMax=Math.round(S.hullMax*(1+OC_GAIN.hull*o('hull'))*(rb[2]?1.15:1));S.magnet*=1+OC_GAIN.magnet*o('magnet');
+  S.refine*=(1+OC_GAIN.refinery*o('refinery'))*(1+.01*deeds.length)*(rb[0]?1.1:1);
+  S.missMul=1+OC_GAIN.missile*o('missile');S.wingMul=1+OC_GAIN.wing*o('wing');if(rb[1])S.dmgMul*=1.1;if(rb[3])S.rateMul*=1.1}
+function saveGame(){store.set(SAVE,{v:2,level,credits,score,lives,upg,wl,weapon,shipId,ownedShips,bombs,hull,stars,oc,deeds})}
 function loadGame(sv){resetProgress();level=sv.level;credits=sv.credits;score=sv.score;lives=sv.lives;Object.assign(upg,sv.upg||{});Object.assign(wl,sv.wl||{});
-  weapon=sv.weapon||'blaster';shipId=sv.shipId||'prospector';ownedShips=sv.ownedShips||['prospector'];bombs=sv.bombs??1;stars=sv.stars||{};computeStats();hull=sv.hull??S.hullMax}
+  weapon=sv.weapon||'blaster';shipId=sv.shipId||'prospector';ownedShips=sv.ownedShips||['prospector'];bombs=sv.bombs??1;stars=sv.stars||{};oc=sv.oc||{};deeds=Array.isArray(sv.deeds)?sv.deeds:[];computeStats();hull=sv.hull??S.hullMax}
 (function migrate(){if(store.get(SAVE))return;const o=store.get('orerush_save');if(!o)return;resetProgress();
   level=o.level;credits=o.credits;score=o.score;lives=o.lives;const ou=o.upg||{};['engine','shield','hull','magnet','missile'].forEach(k=>upg[k]=ou[k]||0);
   wl.blaster=Math.min(5,Math.max(ou.blaster||0,ou.rate||0,ou.spread||0));computeStats();hull=Math.min(o.hull??S.hullMax,S.hullMax);saveGame()})();
@@ -681,7 +709,7 @@ function jag(x1,y1,x2,y2){const pts=[[x1,y1]],n=Math.max(3,Math.floor(Math.hypot
   for(let i=1;i<n;i++){const t=i/n,o=rand(-10,10);pts.push([x1+(x2-x1)*t+nx/l*o,y1+(y2-y1)*t+ny/l*o])}pts.push([x2,y2]);return pts}
 
 // ================= update: ship & weapons =================
-function fireWeapon(dt,firing){const L=wl[weapon],s=wstat(weapon,L),dm=S.dmgMul*(ship.pu.over>0?2:1),rm=S.rateMul*(ship.pu.rapid>0?2:1);
+function fireWeapon(dt,firing){const L=wl[weapon],s=wstat(weapon,L),dm=S.dmgMul*(1+OC_WEAPON*(oc['w_'+weapon]||0))*(ship.pu.over>0?2:1),rm=S.rateMul*(ship.pu.rapid>0?2:1);
   const nx=Math.cos(ship.a),ny=Math.sin(ship.a),ox=ship.x+nx*(S.sh.len-2),oy=ship.y+ny*(S.sh.len-2);
   if(weapon==='laser'){if(!firing){beam=null;laserSound(false);return}laserSound(true);
     const dps=s.dps*dm*(ship.pu.rapid>0?1.5:1);let end=s.len,hitObj=null;const hits=[];
@@ -739,13 +767,13 @@ function updateShip(dt){
   // missiles
   if(S.missileCd){ship.missT-=dt;if(ship.missT<=0){const tg=nearest(ship.x,ship.y,900);if(tg){ship.missT=S.missileCd;
     for(let i=0;i<S.missileN;i++){const a=ship.a+(i?1:-1)*1.4;const t2=i?nearest(ship.x,ship.y,900,new Set([tg]))||tg:tg;
-      missiles.push({x:ship.x,y:ship.y,vx:ship.vx+Math.cos(a)*180,vy:ship.vy+Math.sin(a)*180,a,target:t2,life:4,dmg:(5+upg.missile*1.5)*S.dmgMul})}sfx.missile()}else ship.missT=.5}}
+      missiles.push({x:ship.x,y:ship.y,vx:ship.vx+Math.cos(a)*180,vy:ship.vy+Math.sin(a)*180,a,target:t2,life:4,dmg:(5+upg.missile*1.5)*S.dmgMul*S.missMul})}sfx.missile()}else ship.missT=.5}}
   // wingmen
   const wn=S.wing>=3?2:S.wing>=1?1:0;
   for(let i=0;i<wn;i++){const w=ship.wings[i],a=levelTime*1.7+i*Math.PI,tx=ship.x+Math.cos(a)*44,ty=ship.y+Math.sin(a)*44;
     if(w.x===0&&w.y===0){w.x=tx;w.y=ty}w.x+=(tx-w.x)*Math.min(1,8*dt);w.y+=(ty-w.y)*Math.min(1,8*dt);w.fireT-=dt;
     if(w.fireT<=0&&clearT<0){const t=nearest(w.x,w.y,430);if(t){w.fireT=(S.wing>=2?.42:.6);const aa=Math.atan2(t.y-w.y,t.x-w.x);
-      bullets.push({x:w.x,y:w.y,vx:Math.cos(aa)*820,vy:Math.sin(aa)*820,life:.6,dmg:(S.wing>=2?1.4:.9)*S.dmgMul*(ship.pu.over>0?2:1)*(1+level*.02),col:'#9ff6ff',k:'bolt'});sfx.wing()}else w.fireT=.3}
+      bullets.push({x:w.x,y:w.y,vx:Math.cos(aa)*820,vy:Math.sin(aa)*820,life:.6,dmg:(S.wing>=2?1.4:.9)*S.dmgMul*(ship.pu.over>0?2:1)*(1+level*.02)*S.wingMul,col:'#9ff6ff',k:'bolt'});sfx.wing()}else w.fireT=.3}
     for(const o of ores){if(!o.dead&&(o.x-w.x)**2+(o.y-w.y)**2<24*24){o.dead=true;collectOre(o)}}}
 }
 
@@ -1326,39 +1354,56 @@ function importCode(txt){let sv;try{sv=parseCode(txt)}catch(e){tmsg("That code d
 const shipImgCache={};
 function shipImg(d){if(shipImgCache[d.id])return shipImgCache[d.id];const c=document.createElement('canvas');c.width=200;c.height=150;const g=c.getContext('2d');
   g.translate(100,82);g.scale(2.6,2.6);g.rotate(-Math.PI/2);drawShipBody(g,d,false);return shipImgCache[d.id]=c.toDataURL()}
+const fmtK=n=>n>=1e6?(n/1e6).toFixed(n>=1e7?0:1)+'M':n>=1e3?Math.round(n/1e3)+'k':String(n);
 function pips(l,max){return `<div class="pips">${Array.from({length:max},(_,i)=>`<i class="pip ${i<l?'on':''}"></i>`).join('')}</div>`}
 function showShop(){state='shop';computeStats();const n=level;let cards='';
   if(shopTab==='weapons'){for(const w of WEAPONS){const L=wl[w.id],own=L>=0,eq=weapon===w.id;
-    let btns='';if(!own)btns=`<button data-wbuy="${w.id}" ${credits<w.cost?'disabled':''}>Buy · ${fmt(w.cost)} cr</button>`;
-    else{const c=wUpCost(w,L);btns=`<button data-wup="${w.id}" ${L>=5||credits<c?'disabled':''}>${L>=5?'Maxed':'Upgrade · '+fmt(c)}</button>`+(eq?'':`<button class="eqb" data-equip="${w.id}">Equip</button>`)}
+    let btns='';const k=oc['w_'+w.id]||0;
+    if(!own)btns=n<(w.req||0)?`<button disabled>🔒 Sector ${w.req}</button>`:`<button data-wbuy="${w.id}" ${credits<w.cost?'disabled':''}>Buy · ${fmt(w.cost)} cr</button>`;
+    else{let up;if(L>=5){const c=wocCost(w,k);up=`<button data-woc="${w.id}" ${credits<c?'disabled':''}>Overclock +${k+1} · ${fmt(c)}</button>`}
+      else{const c=wUpCost(w,L),rq=WUP_REQ[L+1];up=n<rq?`<button disabled>🔒 Sector ${rq}</button>`:`<button data-wup="${w.id}" ${credits<c?'disabled':''}>Upgrade · ${fmt(c)}</button>`}
+      btns=up+(eq?'':`<button class="eqb" data-equip="${w.id}">Equip</button>`)}
     cards+=`<div class="card ${eq?'eq':''}"><div class="ct"><i class="dot" style="background:${w.color};box-shadow:0 0 8px ${w.color};margin:0"></i>${w.name}${eq?' <span style="color:#5ef0ff;font-size:10px">EQUIPPED</span>':''}</div>
-      ${own?pips(L+1,6):''}<div class="cd">${w.desc}</div><div class="stat">${wdesc(w.id,Math.max(0,L))}${own&&L<5?' → next: '+wdesc(w.id,L+1):''}</div><div class="bb">${btns}</div></div>`}}
-  else if(shopTab==='systems'){for(const u of UPG){const l=upg[u.id],c=upgCost(u,l),mx=l>=u.max;
-    cards+=`<div class="card"><div class="ct">${u.name}</div>${pips(l,u.max)}<div class="cd">${u.desc}</div><div class="stat">${sysDesc(u.id,l)}${mx?'':' → '+sysDesc(u.id,l+1)}</div>
-    <div class="bb"><button data-buy="${u.id}" ${mx||credits<c?'disabled':''}>${mx?'Maxed':fmt(c)+' cr'}</button></div></div>`}}
-  else if(shopTab==='ships'){const mxv={hull:2.1,shield:1.8,speed:1.3,dmg:1.5};
+      ${own?pips(L+1,6):''}<div class="cd">${w.desc}</div><div class="stat">${wdesc(w.id,Math.max(0,L))}${own&&L<5?' → next: '+wdesc(w.id,L+1):''}${own&&L>=5?`<br>Overclock: +${Math.round(OC_WEAPON*k*100)}% damage → +${Math.round(OC_WEAPON*(k+1)*100)}%`:''}</div><div class="bb">${btns}</div></div>`}}
+  else if(shopTab==='systems'){for(const u of UPG){const l=upg[u.id],c=upgCost(u,l),mx=l>=u.max,k=oc[u.id]||0,g=OC_GAIN[u.id],rq=UPG_REQ[l+1]||0;
+    const btn=mx?`<button data-oc="${u.id}" ${credits<ocCost(u,k)?'disabled':''}>Overclock +${k+1} · ${fmt(ocCost(u,k))}</button>`
+      :n<rq?`<button disabled>🔒 Sector ${rq}</button>`:`<button data-buy="${u.id}" ${credits<c?'disabled':''}>${fmt(c)} cr</button>`;
+    cards+=`<div class="card"><div class="ct">${u.name}${k?` <span style="color:#ffc845;font-size:10px">+${k}</span>`:''}</div>${pips(l,u.max)}<div class="cd">${u.desc}</div><div class="stat">${sysDesc(u.id,l)}${mx?'':' → '+sysDesc(u.id,l+1)}
+    ${mx?`<br>Overclock: +${Math.round(g*k*100)}% → +${Math.round(g*(k+1)*100)}%`:''}</div><div class="bb">${btn}</div></div>`}}
+  else if(shopTab==='ships'){const mxv={};['hull','shield','speed','dmg'].forEach(k=>mxv[k]=Math.max(...SHIPS.map(d=>d[k])));
     for(const d of SHIPS){const own=ownedShips.includes(d.id),cur=shipId===d.id;
       const sb=['hull','shield','speed','dmg'].map(k=>`<span>${{hull:'Hull',shield:'Shield',speed:'Speed',dmg:'Damage'}[k]}</span><i style="width:${Math.round(d[k]/mxv[k]*100)}%"></i>`).join('');
       cards+=`<div class="card ${cur?'eq':''}"><img src="${shipImg(d)}" alt=""><div class="ct">${d.name}${cur?' <span style="color:#5ef0ff;font-size:10px">FLYING</span>':''}</div><div class="cd">${d.desc}</div><div class="sbar">${sb}</div>
-      <div class="bb">${cur?'<button disabled>Current ship</button>':own?`<button class="eqb" data-fly="${d.id}">Fly this ship</button>`:`<button data-ship="${d.id}" ${credits<d.cost?'disabled':''}>Buy · ${fmt(d.cost)} cr</button>`}</div></div>`}}
+      <div class="bb">${cur?'<button disabled>Current ship</button>':own?`<button class="eqb" data-fly="${d.id}">Fly this ship</button>`:n<(d.req||0)?`<button disabled>🔒 Sector ${d.req} · ${fmt(d.cost)} cr</button>`:`<button data-ship="${d.id}" ${credits<d.cost?'disabled':''}>Buy · ${fmt(d.cost)} cr</button>`}</div></div>`}}
+  else if(shopTab==='belt'){const own=deeds.length,rb=[0,1,2,3].map(regionOwned);
+    cards+=`<div class="card" style="grid-column:1/-1"><div class="ct">The Belt</div><div class="cd">Buy the deed to any sector you've cleared. Each deed adds <b>+1% ore value</b> for good. Own a whole region for a big bonus.</div>
+      <div class="stat">You own ${own} of ${LAST_SECTOR} · ore value +${own}%${rb.some(x=>x)?' · region bonus: '+rb.map((x,i)=>x?REGION_BONUS[i]:'').filter(x=>x).join(' · '):''}</div></div>`;
+    for(let r=0;r<4;r++){let cells='',cnt=0;for(let i=1;i<=10;i++){const sn=r*10+i,has=deeds.includes(sn),ok=cleared(sn),c=deedCost(sn);if(has)cnt++;
+        cells+=`<button class="deed ${has?'own':''}" style="--rc:${REGION_COL[r]}" ${has||!ok?'disabled':`data-deed="${sn}"`} ${!has&&ok&&credits<c?'data-poor="1"':''}><b>${sn}</b><small>${has?'✓ owned':ok?fmtK(c):'🔒'}</small></button>`}
+      cards+=`<div class="card" style="grid-column:1/-1;${rb[r]?`border-color:${REGION_COL[r]}`:''}"><div class="ct" style="color:${REGION_COL[r]}">${REGIONS[r].name}<span style="margin-left:auto;font-size:11px;color:#93a8c6">${cnt}/10</span></div>
+        <div class="cd">Full region: ${REGION_BONUS[r]}${rb[r]?' <b style="color:#7dff7a">· ACTIVE</b>':''}</div><div class="belt">${cells}</div></div>`}}
   else{const miss=Math.ceil(S.hullMax-hull),rep=Math.ceil(miss*1.4),lifeCost=400+n*60,novaCost=220+n*15;
     cards+=`<div class="card ${miss>S.hullMax*.3?'warn':''}"><div class="ct">Hull Repair</div><div class="cd">Hull at ${Math.round(hull)} / ${S.hullMax}.</div><div class="bb"><button data-act="repair" ${miss<=0||credits<=0?'disabled':''}>${miss<=0?'Fully repaired':(credits>=rep?'Repair · '+fmt(rep)+' cr':'Repair what you can')}</button></div></div>`;
     cards+=`<div class="card"><div class="ct">Spare Ship</div><div class="cd">An extra life. You have ${lives} (max 5).</div><div class="bb"><button data-act="life" ${lives>=5||credits<lifeCost?'disabled':''}>${lives>=5?'Max':fmt(lifeCost)+' cr'}</button></div></div>`;
     cards+=`<div class="card"><div class="ct">Nova Bomb</div><div class="cd">Shockwave that wrecks everything nearby and clears enemy fire. You have ${bombs} (max 5).</div><div class="bb"><button data-act="nova" ${bombs>=5||credits<novaCost?'disabled':''}>${bombs>=5?'Max':fmt(novaCost)+' cr'}</button></div></div>`}
   const miss=hull<S.hullMax*.7;
   showOv(`<div class="shophead"><h2 style="margin:0">Shipyard</h2><span class="credits" style="font-size:20px">${fmt(credits)} cr</span></div>
-  <div class="tabs">${[['weapons','Weapons'],['systems','Systems'],['ships','Ships'],['services','Services'+(miss?' ⚠':'')]].map(([k,l])=>`<button data-tab="${k}" class="${shopTab===k?'on':''}">${l}</button>`).join('')}</div>
+  <div class="tabs">${[['weapons','Weapons'],['systems','Systems'],['ships','Ships'],['belt','Belt'],['services','Dock'+(miss?' ⚠':'')]].map(([k,l])=>`<button data-tab="${k}" class="${shopTab===k?'on':''}">${l}</button>`).join('')}</div>
   <div class="grid">${cards}</div>
   <div class="btns"><button class="btn" data-act="next">Continue to sector ${level}</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button><button class="btn alt" data-act="menu">Save &amp; quit to menu</button></div>`)}
 
 ov.addEventListener('click',e=>{initAudio();const b=e.target.closest('button');if(!b||b.disabled)return;const D=b.dataset;
   const keepScroll=()=>{const p=ov.querySelector('.panel'),s=p?p.scrollTop:0;showShop();const p2=ov.querySelector('.panel');if(p2)p2.scrollTop=s};
   if(D.tab){shopTab=D.tab;sfx.click();showShop();return}
-  if(D.buy){const u=UPG.find(x=>x.id===D.buy),c=upgCost(u,upg[D.buy]);if(credits>=c&&upg[D.buy]<u.max){credits-=c;const om=S.hullMax;upg[D.buy]++;computeStats();if(D.buy==='hull')hull+=S.hullMax-om;sfx.buy();saveGame();keepScroll()}return}
-  if(D.wbuy){const w=WEAPONS.find(x=>x.id===D.wbuy);if(credits>=w.cost){credits-=w.cost;wl[w.id]=0;weapon=w.id;sfx.buy();saveGame();keepScroll()}return}
-  if(D.wup){const w=WEAPONS.find(x=>x.id===D.wup),c=wUpCost(w,wl[w.id]);if(credits>=c&&wl[w.id]<5){credits-=c;wl[w.id]++;sfx.buy();saveGame();keepScroll()}return}
+  if(D.buy){const u=UPG.find(x=>x.id===D.buy),c=upgCost(u,upg[D.buy]);if(credits>=c&&upg[D.buy]<u.max&&level>=(UPG_REQ[upg[D.buy]+1]||0)){credits-=c;const om=S.hullMax;upg[D.buy]++;computeStats();if(D.buy==='hull')hull+=S.hullMax-om;sfx.buy();saveGame();keepScroll()}return}
+  if(D.wbuy){const w=WEAPONS.find(x=>x.id===D.wbuy);if(credits>=w.cost&&level>=(w.req||0)){credits-=w.cost;wl[w.id]=0;weapon=w.id;sfx.buy();saveGame();keepScroll()}return}
+  if(D.wup){const w=WEAPONS.find(x=>x.id===D.wup),c=wUpCost(w,wl[w.id]);if(credits>=c&&wl[w.id]<5&&level>=WUP_REQ[wl[w.id]+1]){credits-=c;wl[w.id]++;sfx.buy();saveGame();keepScroll()}return}
+  if(D.oc){const u=UPG.find(x=>x.id===D.oc),k=oc[u.id]||0,c=ocCost(u,k);if(upg[u.id]>=u.max&&credits>=c){credits-=c;const om=S.hullMax;oc[u.id]=k+1;computeStats();if(u.id==='hull')hull+=S.hullMax-om;sfx.buy();saveGame();keepScroll()}return}
+  if(D.woc){const w=WEAPONS.find(x=>x.id===D.woc),key='w_'+w.id,k=oc[key]||0,c=wocCost(w,k);if(wl[w.id]>=5&&credits>=c){credits-=c;oc[key]=k+1;sfx.buy();saveGame();keepScroll()}return}
+  if(D.deed){const sn=+D.deed,c=deedCost(sn),r=Math.floor((sn-1)/10);if(!deeds.includes(sn)&&cleared(sn)&&credits>=c){if(credits<c)return;credits-=c;deeds.push(sn);const om=S.hullMax;computeStats();hull+=Math.max(0,S.hullMax-om);
+    regionOwned(r)?sfx.clear():sfx.buy();saveGame();keepScroll()}return}
   if(D.equip){weapon=D.equip;sfx.buy();saveGame();keepScroll();return}
-  if(D.ship){const d=SHIPS.find(x=>x.id===D.ship);if(credits>=d.cost){credits-=d.cost;ownedShips.push(d.id);shipId=d.id;computeStats();hull=S.hullMax;sfx.buy();saveGame();keepScroll()}return}
+  if(D.ship){const d=SHIPS.find(x=>x.id===D.ship);if(credits>=d.cost&&level>=(d.req||0)){credits-=d.cost;ownedShips.push(d.id);shipId=d.id;computeStats();hull=S.hullMax;sfx.buy();saveGame();keepScroll()}return}
   if(D.fly){const ratio=hull/S.hullMax;shipId=D.fly;computeStats();hull=Math.round(S.hullMax*ratio);sfx.buy();saveGame();keepScroll();return}
   const act=D.act;if(['new','continue','shop','next','tback','resume','quit','menu','transfer'].includes(act))sfx.click();
   if(act==='new'){resetProgress();store.del(SAVE);showBrief()}

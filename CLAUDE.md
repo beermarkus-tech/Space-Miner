@@ -29,7 +29,8 @@ in the browser and on his phone, so keep changes playable and explain them in pl
 - **overlays:** `showTitle/Brief/Shop/Fail/Transfer()`, `endLevel()`, `gameOver()`
 
 ## Save data
-- `localStorage['orerush2_save']` holds `{v:2, level, credits, score, lives, upg, wl, weapon, shipId, ownedShips, bombs, hull, stars}`.
+- `localStorage['orerush2_save']` holds `{v:2, level, credits, score, lives, upg, wl, weapon, shipId, ownedShips, bombs, hull, stars, oc, deeds}`.
+  `oc` = overclock levels (system ids, and `w_<weapon>` for weapons); `deeds` = sector numbers bought in the Belt tab.
   `orerush_best` holds the best score, `orerush_sound` the sound mode (0 all, 1 effects only, 2 off; `orerush_muted` is the old flag), `orerush_vibe` vibration on/off. `orerush_save` is the old v1 format, migrated on load.
 - Save codes are `ORS2:` + base64(JSON). If you change the save shape, keep `loadGame()` tolerant of old saves (defaults for missing keys)
   so players don't lose progress.
@@ -40,6 +41,7 @@ in the browser and on his phone, so keep changes playable and explain them in pl
 - **When you change any shipped file, bump `VERSION` in `sw.js`**, otherwise installed copies keep the old cache.
 - New file that must work offline → add it to `SHELL` in `sw.js`.
 - Balance knobs live in data tables and small formulas (`wstat`, `upgCost`, `wUpCost`, `makeEnemy` HP, `quotaOf`, `defendTime`).
+  Economy (see `// ---- economy`): sector unlocks `UPG_REQ`/`WUP_REQ` and `req` on `SHIPS`/`WEAPONS`, overclock `OC_GAIN`/`ocCost`/`wocCost`, Belt `deedCost`/`REGION_BONUS`; all applied in `computeStats()`.
 
 ## Shipping
 - The owner wants finished work merged to `main` automatically, without asking (GitHub Pages deploys from `main`).
