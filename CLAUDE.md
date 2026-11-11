@@ -18,7 +18,9 @@ in the browser and on his phone, so keep changes playable and explain them in pl
   clicks are handled by one delegated listener on `#ov` using `data-act`, `data-buy`, `data-wbuy`, `data-wup`, `data-equip`, `data-ship`, `data-fly`, `data-tab`.
 
 ## Code map (search for these `// ===` section headers)
-- **game data:** `SHIPS`, `WEAPONS` + `wstat()`, `UPG` (systems), `PU` (power-ups), `REGIONS`, `BOSSES`, `missionOf()`, `BRIEF` texts
+- **game data:** `SHIPS`, `WEAPONS` + `wstat()`, `UPG` (systems), `PU` (power-ups), `REGIONS`, `BOSSES`, `MISSION_PLAN` / `ENDLESS_PLAN` + `missionOf()`, `BRIEF` texts
+- **missions:** clear, quota, defend (rig), escort (moving `rig` with `hauler:true`), storm (`storm` zone + lightning), lode (`lode` asteroid with 3 shells, scavengers), boss.
+  Campaign is `LAST_SECTOR`=40 sectors in 4 regions; the Endless Deep follows.
 - **state:** global `let`s (`level`, `credits`, `upg`, `wl` weapon levels with -1 = not owned, `shipId`, `stars`, …)
 - **level setup:** `setupField()`, `startLevel()`, `spawnRandomAsteroid()`, `buildSpawnQueue()`
 - **entities:** `makeEnemy()`, `breakAsteroid()`, `killEnemy()`, `hurt()`, `triggerNova()`
@@ -28,7 +30,7 @@ in the browser and on his phone, so keep changes playable and explain them in pl
 
 ## Save data
 - `localStorage['orerush2_save']` holds `{v:2, level, credits, score, lives, upg, wl, weapon, shipId, ownedShips, bombs, hull, stars}`.
-  `orerush_best` holds the best score, `orerush_muted` the sound setting. `orerush_save` is the old v1 format, migrated on load.
+  `orerush_best` holds the best score, `orerush_sound` the sound mode (0 all, 1 effects only, 2 off; `orerush_muted` is the old flag), `orerush_vibe` vibration on/off. `orerush_save` is the old v1 format, migrated on load.
 - Save codes are `ORS2:` + base64(JSON). If you change the save shape, keep `loadGame()` tolerant of old saves (defaults for missing keys)
   so players don't lose progress.
 
