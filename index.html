@@ -205,40 +205,130 @@ const STARS=[0,1,2].map(l=>Array.from({length:110},()=>({x:Math.random()*900,y:M
 const STAR_P=[.12,.28,.5];
 
 // ================= audio =================
-let AC=null,master=null,noiseBuf=null,muted=store.get('orerush_muted')||false,sndT={},laserSnd=null;
-function initAudio(){if(AC){if(AC.state==='suspended')AC.resume();return}
-  try{AC=new(window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=muted?0:.32;master.connect(AC.destination);
-    noiseBuf=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}catch(e){AC=null}}
+// Everything is synthesized with Web Audio: no sound files. Effects go to sfxBus, music to musBus, both through master.
+// Sound mode (muteBtn cycles it): 0 = music + effects, 1 = effects only, 2 = silent.
+let AC=null,master=null,sfxBus=null,musBus=null,noiseBuf=null,sndT={},laserSnd=null,engSnd=null,pickN=0,pickT=0;
+let sndMode=(()=>{const m=store.get('orerush_sound');if(m===0||m===1||m===2)return m;return store.get('orerush_muted')?2:0})(),muted=sndMode===2;
+const MASTER_VOL=.34,MUS_VOL=.5;
+function initAudio(){if(AC){if(AC.state==='suspended'&&!document.hidden)AC.resume();return}
+  try{AC=new(window.AudioContext||window.webkitAudioContext)();const comp=AC.createDynamicsCompressor();comp.threshold.value=-12;comp.ratio.value=4;comp.connect(AC.destination);
+    master=AC.createGain();master.gain.value=muted?0:MASTER_VOL;master.connect(comp);
+    sfxBus=AC.createGain();sfxBus.connect(master);musBus=AC.createGain();musBus.gain.value=sndMode===0?MUS_VOL:0;musBus.connect(master);
+    noiseBuf=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    setInterval(musTick,25)}catch(e){AC=null}}
+function applySound(){muted=sndMode===2;if(!AC)return;const t=AC.currentTime;master.gain.setTargetAtTime(muted?0:MASTER_VOL,t,.02);
+  musBus.gain.setTargetAtTime(sndMode===0?MUS_VOL*(state==='pause'?.35:1):0,t,.08);if(muted)laserSound(false)}
 function thr(k,ms){const n=performance.now();if(n-(sndT[k]||0)<ms)return true;sndT[k]=n;return false}
 function tone(f,dur,type,vol,f2,delay=0){if(!AC||muted)return;const t=AC.currentTime+delay,o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,t);
-  if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(master);o.start(t);o.stop(t+dur+.02)}
-function noise(dur,vol,freq){if(!AC||muted)return;const t=AC.currentTime,s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=noiseBuf;f.type='lowpass';
+  if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(sfxBus);o.start(t);o.stop(t+dur+.02)}
+function noise(dur,vol,freq,delay=0){if(!AC||muted)return;const t=AC.currentTime+delay,s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=noiseBuf;f.type='lowpass';
   f.frequency.setValueAtTime(freq,t);f.frequency.exponentialRampToValueAtTime(Math.max(60,freq*.15),t+dur);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
-  s.connect(f);f.connect(g);g.connect(master);s.start(t);s.stop(t+dur+.02)}
+  s.connect(f);f.connect(g);g.connect(sfxBus);s.start(t,Math.random()*.4);s.stop(t+dur+.02)}
+const PENTA=[0,2,4,7,9,12,14,16,19,21,24];
 const sfx={
   blaster(){if(thr('s',70))return;tone(920,.07,'square',.045,420)},
   scatter(){if(thr('s',90))return;noise(.12,.18,2500);tone(300,.08,'square',.05,120)},
   plasma(){if(thr('s',90))return;tone(260,.2,'sine',.12,90);tone(520,.12,'triangle',.05,200)},
   arc(){if(thr('s',80))return;noise(.08,.12,6000);tone(1400,.06,'sawtooth',.04,700)},
   wing(){if(thr('w',120))return;tone(1300,.04,'square',.02,800)},
-  hit(){if(thr('h',45))return;noise(.05,.11,3500)},
+  hit(){if(thr('h',45))return;noise(.06,.12,2200);tone(140,.05,'sine',.06,80)},                         // bullet hits rock
+  clang(){if(thr('h',45))return;tone(1500+Math.random()*500,.05,'square',.025,900);noise(.04,.07,6000)}, // bullet hits a ship
   boom(big){if(thr(big?'bb':'b',40))return;noise(big?.9:.45,big?.55:.32,big?700:1400);tone(big?85:150,big?.7:.3,'sine',.35,35)},
-  pick(){if(thr('p',35))return;tone(1250+Math.random()*300,.09,'sine',.09,2100)},
-  pu(){tone(600,.1,'triangle',.14,1200);tone(900,.18,'triangle',.12,1800,.08)},
+  pick(){const n=performance.now();pickN=n-pickT<700?Math.min(pickN+1,PENTA.length-1):0;pickT=n;if(thr('p',35))return;  // rising chime on pickup streaks
+    tone(1050*Math.pow(2,PENTA[pickN]/12),.09,'sine',.08,0);tone(2100*Math.pow(2,PENTA[pickN]/12),.06,'sine',.025,0)},
+  pu(){tone(600,.1,'triangle',.14,1200);tone(900,.18,'triangle',.12,1800,.08);tone(1350,.25,'sine',.06,2400,.16)},
   hurt(){if(thr('hu',90))return;tone(220,.22,'sawtooth',.16,70);noise(.15,.15,1200)},
-  missile(){noise(.35,.08,2500)},
+  shield(){if(thr('sh',70))return;tone(1900,.09,'sine',.06,900);noise(.07,.06,9000)},
+  shieldDown(){tone(1100,.4,'sawtooth',.07,110);noise(.35,.14,4000);tone(1650,.3,'square',.03,160)},
+  lowHull(){tone(620,.11,'sine',.13,560);tone(620,.11,'sine',.1,560,.16)},
+  lost(){[440,370,311,220].forEach((f,i)=>tone(f,.4,'sawtooth',.05,f*.96,.25+i*.17))},
+  respawn(){tone(220,.7,'sine',.12,880);tone(330,.7,'triangle',.06,1320,.12);tone(1760,.3,'sine',.04,0,.7)},
+  missile(){noise(.35,.08,2500);tone(400,.2,'triangle',.03,900)},
   eshot(){if(thr('e',50))return;tone(520,.12,'triangle',.06,180)},
-  clear(){[523,659,784,1047].forEach((f,i)=>tone(f,.25,'triangle',.12,0,i*.09))},
+  warpIn(){if(thr('wi',250))return;tone(2000,.4,'sine',.045,180);noise(.35,.07,3500)},
+  bossIntro(){tone(55,2.4,'sawtooth',.16,46);tone(82.5,2.4,'sawtooth',.09,70);noise(2,.22,450);[0,.55,1.1].forEach(d=>tone(110,.45,'square',.05,98,d+.3))},
+  rage(){tone(130,1.1,'sawtooth',.14,55);tone(196,1.1,'sawtooth',.09,82);noise(.9,.28,1300)},
+  charge(){tone(140,1.1,'sawtooth',.06,1500);tone(70,1.1,'sine',.12,300)},
+  mineArm(){if(thr('mi',400))return;tone(1800,.05,'square',.03);tone(1800,.05,'square',.03,0,.1)},
+  clear(){[523,659,784,1047,1319].forEach((f,i)=>tone(f,.28,'triangle',.11,0,i*.08));[523,659,784].forEach(f=>tone(f*2,.9,'sine',.05,0,.45))},
+  star(i){const f=[1047,1319,1568][i];tone(f,.45,'triangle',.1,0,.4+i*.33);tone(f*2,.3,'sine',.035,0,.4+i*.33)},
   fail(){[392,330,262].forEach((f,i)=>tone(f,.3,'triangle',.12,0,i*.15))},
+  over(){[392,349,311,262,196].forEach((f,i)=>tone(f,.7,'triangle',.11,f*.98,i*.3))},
   buy(){tone(660,.09,'triangle',.12);tone(990,.14,'triangle',.12,0,.07)},
-  warp(){tone(200,.5,'sine',.12,900)},
+  swap(){tone(500,.05,'square',.045,800);tone(1000,.06,'square',.035,0,.05)},
+  click(){tone(1400,.035,'triangle',.05,1000)},
+  warp(){tone(200,.5,'sine',.12,900);noise(.6,.1,5000)},
   nova(){noise(1.4,.6,900);tone(60,1.2,'sine',.5,30);tone(1200,.6,'sawtooth',.06,100)},
   alarm(){tone(880,.15,'square',.06);tone(660,.15,'square',.06,0,.18)}
 };
 function laserSound(on){if(!AC||muted){if(laserSnd){try{laserSnd.o.stop()}catch(e){}laserSnd=null}return}
   if(on&&!laserSnd){const o=AC.createOscillator(),o2=AC.createOscillator(),g=AC.createGain(),f=AC.createBiquadFilter();o.type='sawtooth';o.frequency.value=110;o2.type='square';o2.frequency.value=221;
-    f.type='lowpass';f.frequency.value=1400;g.gain.value=.05;o.connect(f);o2.connect(f);f.connect(g);g.connect(master);o.start();o2.start();laserSnd={o,o2,g}}
+    f.type='lowpass';f.frequency.value=1400;g.gain.value=.05;o.connect(f);o2.connect(f);f.connect(g);g.connect(sfxBus);o.start();o2.start();laserSnd={o,o2,g}}
   else if(!on&&laserSnd){const s=laserSnd;laserSnd=null;s.g.gain.setTargetAtTime(0,AC.currentTime,.03);setTimeout(()=>{try{s.o.stop();s.o2.stop()}catch(e){}},150)}}
+// quiet engine rumble while thrusting (one looping noise source, faded in and out)
+function engineSound(on,speed){if(!AC)return;if(!engSnd){if(!on)return;const s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=noiseBuf;s.loop=true;
+    f.type='lowpass';f.frequency.value=260;f.Q.value=2;g.gain.value=0;s.connect(f);f.connect(g);g.connect(sfxBus);s.start();engSnd={f,g}}
+  const t=AC.currentTime;engSnd.g.gain.setTargetAtTime(on&&!muted?.07:0,t,on?.06:.12);if(on)engSnd.f.frequency.setTargetAtTime(220+Math.min(speed,500)*.7,t,.1)}
+
+// ---------- music: a tiny step sequencer ----------
+// Each track has a tempo, a scale, a chord progression (one chord per bar, as scale degrees) and a step() that plays one 16th note.
+const AEOL=[0,2,3,5,7,8,10],PHRY=[0,1,3,5,7,8,10];
+const mf=m=>440*Math.pow(2,(m-69)/12),sdeg=(sc,d)=>sc[((d%7)+7)%7]+12*Math.floor(d/7);
+function mNote(t,f,dur,type,vol,out,o={}){const os=AC.createOscillator(),g=AC.createGain();os.type=type;os.frequency.value=f;if(o.det)os.detune.value=o.det;let n=os;
+  if(o.cut){const fl=AC.createBiquadFilter();fl.type='lowpass';fl.Q.value=o.q||1;fl.frequency.setValueAtTime(o.cut,t);if(o.cut2)fl.frequency.exponentialRampToValueAtTime(o.cut2,t+dur);os.connect(fl);n=fl}
+  const a=o.a||.005;g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(vol,t+a);g.gain.exponentialRampToValueAtTime(.0001,t+Math.max(dur,a+.02));
+  n.connect(g);g.connect(out);os.start(t);os.stop(t+Math.max(dur,a+.02)+.05)}
+function mNoise(t,dur,vol,type,freq,out){const s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=noiseBuf;f.type=type;f.frequency.value=freq;
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(f);f.connect(g);g.connect(out);s.start(t,Math.random()*.5);s.stop(t+dur+.02)}
+function kick(t,o,v){const os=AC.createOscillator(),g=AC.createGain();os.frequency.setValueAtTime(150,t);os.frequency.exponentialRampToValueAtTime(42,t+.16);
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+.32);os.connect(g);g.connect(o);os.start(t);os.stop(t+.35)}
+const hat=(t,o,v)=>mNoise(t,.045,v,'highpass',7000,o);
+const snare=(t,o,v)=>{mNoise(t,.17,v,'bandpass',1900,o);mNote(t,190,.08,'triangle',v*.6,o)};
+// melodies: one row per bar, 8 eighth notes each, as scale degrees (-99 = rest)
+const _=-99;
+const MEL_PLAY=[[4,_,4,7,4,_,2,_],[5,_,4,_,2,_,0,_],[2,_,4,_,6,_,4,2],[6,_,5,_,3,_,1,_],[7,_,6,7,9,_,7,_],[5,_,7,_,9,_,7,5],[4,_,6,_,4,_,2,_],[3,_,1,_,-1,_,_,_]];
+const MEL_BOSS=[[7,_,8,7,_,4,_,5],[4,_,5,4,_,1,_,0],[8,_,10,8,_,7,_,8],[6,_,5,_,3,_,1,_]];
+function lead(t,c,deg,type,vol,cut){const f=mf(c.root+24+sdeg(c.scale,deg));mNote(t,f,c.sp*1.9,type,vol,c.out,{cut,a:.01});mNote(t+c.sp*3,f,c.sp*1.6,type,vol*.3,c.out,{cut})}
+const MUSIC={
+  // calm and spacey: menus, briefing, shipyard
+  menu:{bpm:72,scale:AEOL,prog:[0,5,3,4],step(t,i,bar,c){const{sp,ch,root:R,out:o}=c;
+    if(i===0){ch.forEach((s,k)=>{mNote(t,mf(R+24+s),sp*17,'triangle',.03,o,{a:1.2,det:k*5-5});mNote(t,mf(R+12+s),sp*17,'sine',.03,o,{a:1.6,det:6})});mNote(t,mf(R+ch[0]),sp*15,'sine',.12,o,{a:.5})}
+    const ap=[0,_,_,1,_,_,2,_,1,_,_,0,_,_,2,_][i];if(ap>=0){const f=mf(R+36+ch[ap]+(bar%2&&i>7?12:0));mNote(t,f,.7,'sine',.035,o);mNote(t+sp*3,f,.6,'sine',.012,o)}}},
+  // driving: normal sectors. Drums and the fast arp kick in while enemies are around.
+  play:{bpm:116,scale:AEOL,prog:[0,5,2,6],step(t,i,bar,c){const{sp,ch,root:R,out:o,hot}=c;
+    if(i%4===0&&(hot||i%8===0))kick(t,o,.5);
+    if(i%4===2)hat(t,o,.05);else if(hot&&i%2===1)hat(t,o,.02);
+    if(hot&&(i===4||i===12))snare(t,o,.15);
+    if(i%2===0)mNote(t,mf(R+ch[0]+[0,0,12,0,0,12,7,12][i/2]),sp*1.7,'sawtooth',.07,o,{cut:900,cut2:180,q:4});
+    if(hot||i%2===0){const tn=[...ch,ch[0]+12];mNote(t,mf(R+24+tn[[0,1,2,3,2,1][i%6]]),sp*.9,'square',.018,o,{cut:2400})}
+    if(i===0)ch.forEach(s=>mNote(t,mf(R+12+s),sp*16,'sawtooth',.016,o,{a:.3,cut:1000}));
+    if(bar>=4&&Math.floor(bar/8)%2===1&&i%2===0){const d=MEL_PLAY[bar%8][i/2];if(d!==_)lead(t,c,d,'triangle',.06,0)}}},
+  // tense: boss sectors. Gets busier once the boss is below 40% hull.
+  boss:{bpm:138,scale:PHRY,prog:[0,0,1,6],step(t,i,bar,c){const{sp,ch,root:R,out:o,rage}=c;
+    if(i%4===0||i===14)kick(t,o,.6);
+    if(i===4||i===12)snare(t,o,.18);
+    if(i%2===0||rage)hat(t,o,i%2?.02:.045);
+    mNote(t,mf(R+ch[0]+(i%4===3?12:0)),sp*.9,'sawtooth',.065,o,{cut:1300,cut2:260,q:5});
+    if(bar%2===0&&[0,3,6,10,12].includes(i))ch.forEach(s=>mNote(t,mf(R+12+s),sp*1.2,'sawtooth',.016,o,{cut:2200}));
+    if((rage||Math.floor(bar/4)%2===1)&&i%2===0){const d=MEL_BOSS[bar%4][i/2];if(d!==_)lead(t,c,d,'sawtooth',.03,2600)}}}
+};
+const REGION_ROOT=[45,40,43,38];  // A, E, G, D: each region plays in its own key
+let mus={cur:null,root:45,g:null,step:0,next:0};
+function switchMusic(name,root){const t=AC.currentTime;if(mus.g){const og=mus.g;og.gain.setTargetAtTime(0,t,.35);setTimeout(()=>og.disconnect(),2500)}
+  mus.cur=name;mus.root=root;mus.g=null;if(!name)return;mus.g=AC.createGain();mus.g.gain.value=1;mus.g.connect(musBus);mus.step=0;mus.next=t+.25}
+function musTick(){if(!AC||AC.state!=='running'||!mus.cur||sndMode!==0)return;const T=MUSIC[mus.cur],sp=60/T.bpm/4,now=AC.currentTime;
+  if(mus.next<now-.2)mus.next=now+.05;
+  const hot=state==='play'&&enemies.length>0,rage=enemies.some(e=>e.boss&&e.hp<e.maxhp*.4);
+  while(mus.next<now+.15){const bar=Math.floor(mus.step/16),i=mus.step%16,deg=T.prog[bar%T.prog.length];
+    const ch=[0,2,4].map(k=>sdeg(T.scale,deg+k));
+    try{T.step(mus.next,i,bar,{sp,ch,root:mus.root,scale:T.scale,out:mus.g,hot,rage})}catch(e){}
+    mus.step++;mus.next+=sp}}
+// called every frame: picks the track for the current screen
+function musicUpdate(){if(!AC)return;let w='menu',root=45;
+  if(state==='play'||state==='pause'){const ending=failT>=0||clearT>=0;w=ending?null:mission==='boss'?'boss':'play';root=mission==='boss'?40:REGION_ROOT[regionOf(level)]}
+  else if(state==='over')w=null;
+  if(w!==mus.cur||(w&&root!==mus.root))switchMusic(w,root);
+  const duck=state==='pause'?.35:1;if(musBus&&mus.duck!==duck){mus.duck=duck;musBus.gain.setTargetAtTime(sndMode===0?MUS_VOL*duck:0,AC.currentTime,.15)}}
 
 // ================= game data =================
 const SHIPS=[
@@ -401,7 +491,7 @@ function setupField(n,withShip){
 
 function startLevel(){computeStats();shield=S.shieldMax;hull=Math.min(hull,S.hullMax);
   levelStats={ore:{},oreVal:{},earned:0,rocks:0,kills:0,damaged:false,deaths:0,bonus:0};TYPE_KEYS.forEach(k=>{levelStats.ore[k]=0;levelStats.oreVal[k]=0});
-  setupField(level,true);state='play';hideOv();sfx.warp();document.body.classList.add('playing');updateActBtns()}
+  setupField(level,true);state='play';hideOv();sfx.warp();if(mission==='boss')setTimeout(()=>{if(state==='play')sfx.bossIntro()},700);document.body.classList.add('playing');updateActBtns()}
 
 // ================= entities =================
 function makeEnemy(kind,x,y){const n=level,b={kind,x,y,vx:0,vy:0,a:Math.PI/2,flash:0,t:rand(0,9),orbit:Math.random()<.5?1:-1,fireT:rand(1.2,2.5),isEnemy:true,
@@ -452,16 +542,17 @@ function killEnemy(e){e.dead=true;const boss=e.boss;explode(e.x,e.y,boss?110:e.r
   else if(Math.random()<pc)spawnPU(e.x,e.y)}
 
 function hurt(d,quiet){if(!ship||ship.dead||ship.inv>0)return;ship.lastHit=0;
-  if(shield>0){const ab=Math.min(shield,d);shield-=ab;d-=ab;ship.shieldFlash=1}
-  if(d>0){hull-=d;levelStats.damaged=true;if(!quiet)sfx.hurt()}else if(!quiet)sfx.hit();
+  if(shield>0){const ab=Math.min(shield,d);shield-=ab;d-=ab;ship.shieldFlash=1;if(shield<=0&&!quiet)sfx.shieldDown()}
+  if(d>0){hull-=d;levelStats.damaged=true;if(!quiet)sfx.hurt()}else if(!quiet)sfx.shield();
   if(!quiet)shake=Math.max(shake,6);if(hull<=0){hull=0;die()}}
-function die(){ship.dead=true;ship.respawn=2.6;lives--;levelStats.deaths++;explode(ship.x,ship.y,70,'#5ef0ff');sfx.boom(true);shake=25;laserSound(false);beam=null}
+function die(){ship.dead=true;ship.respawn=2.6;lives--;levelStats.deaths++;explode(ship.x,ship.y,70,'#5ef0ff');sfx.boom(true);sfx.lost();shake=25;laserSound(false);beam=null}
 function hurtRig(d){if(!rig||rig.dead||failT>=0||clearT>=0)return;rig.hp-=d;rig.flash=1;if(rig.hp<=0){rig.hp=0;explode(rig.x,rig.y,120,'#ffc845');sfx.boom(true);shake=26;failLevel('The mining rig was destroyed.');rig.dead=true}}
 
 function damageRock(a,d,hx,hy){if(a.dead)return;a.hp-=d;a.flash=1;sfx.hit();const T=TYPES[a.type];
   if(Math.random()<.7)for(let i=0;i<2;i++){const an=Math.atan2(hy-a.y,hx-a.x)+rand(-.8,.8),sp=rand(60,180);addPart({k:'spark',x:hx,y:hy,vx:Math.cos(an)*sp+a.vx,vy:Math.sin(an)*sp+a.vy,life:rand(.15,.35),max:.35,size:rand(2.5,5),color:a.kind==='volatile'?'#ff5a1f':T.vein||'#ffcf9a',drag:3})}
   if(a.hp<=0)breakAsteroid(a)}
-function damageEnemy(e,d){if(e.dead)return;e.hp-=d;e.flash=1;sfx.hit();if(e.hp<=0)killEnemy(e)}
+function damageEnemy(e,d){if(e.dead)return;e.hp-=d;e.flash=1;sfx.clang();if(e.hp<=0)killEnemy(e);
+  else if(e.boss&&!e.raged&&e.hp<e.maxhp*.4){e.raged=true;sfx.rage();shake=Math.max(shake,12)}}
 function hitTarget(t,d,hx,hy){if(t.isEnemy)damageEnemy(t,d);else damageRock(t,d,hx,hy)}
 function detonateMine(m,safe){if(m.dead)return;m.dead=true;explode(m.x,m.y,40,'#ff3b3b');sfx.boom(false);
   if(!safe&&ship&&!ship.dead){const d=Math.hypot(ship.x-m.x,ship.y-m.y);if(d<100)hurt((20+level*.5)*(1-d/140))}}
@@ -482,7 +573,7 @@ const keys={};
 addEventListener('keydown',e=>{keys[e.code]=true;if(state==='play'&&['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   if(e.code==='KeyP'||e.code==='Escape'){if(state==='play')pauseGame();else if(state==='pause')resumeGame()}
   if(state==='play'){if(e.code==='KeyQ')cycleWeapon(-1);if(e.code==='KeyE')cycleWeapon(1);if(e.code==='KeyB'||e.code==='KeyX'||e.code==='ShiftLeft')triggerNova();
-    const m=e.code.match(/^Digit([1-5])$/);if(m){const w=WEAPONS[+m[1]-1];if(w&&wl[w.id]>=0){weapon=w.id;updateActBtns()}}}
+    const m=e.code.match(/^Digit([1-5])$/);if(m){const w=WEAPONS[+m[1]-1];if(w&&wl[w.id]>=0&&weapon!==w.id){weapon=w.id;updateActBtns();sfx.swap()}}}
   initAudio()});
 addEventListener('keyup',e=>{keys[e.code]=false});
 let moveStick=null,aimStick=null,mouse={down:false,x:0,y:0};
@@ -495,7 +586,7 @@ cv.addEventListener('pointermove',e=>{if(moveStick&&e.pointerId===moveStick.id){
   else if(aimStick&&e.pointerId===aimStick.id){aimStick.x=e.clientX;aimStick.y=e.clientY}else{mouse.x=e.clientX;mouse.y=e.clientY}});
 const endPtr=e=>{if(moveStick&&e.pointerId===moveStick.id)moveStick=null;else if(aimStick&&e.pointerId===aimStick.id)aimStick=null;else mouse.down=false};
 cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',endPtr);cv.addEventListener('contextmenu',e=>e.preventDefault());
-function cycleWeapon(d){const ow=ownedWeapons();if(ow.length<2)return;let i=ow.findIndex(w=>w.id===weapon);weapon=ow[mod(i+d,ow.length)].id;updateActBtns();sfx.buy()}
+function cycleWeapon(d){const ow=ownedWeapons();if(ow.length<2)return;let i=ow.findIndex(w=>w.id===weapon);weapon=ow[mod(i+d,ow.length)].id;updateActBtns();sfx.swap()}
 function updateActBtns(){const w=WEAPONS.find(x=>x.id===weapon);document.getElementById('wpnName').textContent=w.name.split(' ').pop().toUpperCase()+' '+(wl[weapon]+1);
   const dot=document.getElementById('wpnDot');dot.style.background=w.color;dot.style.boxShadow='0 0 8px '+w.color;document.getElementById('bombN').textContent=bombs;
   document.getElementById('bombBtn').style.opacity=bombs?1:.45}
@@ -538,7 +629,7 @@ function fireWeapon(dt,firing){const L=wl[weapon],s=wstat(weapon,L),dm=S.dmgMul*
 
 function updateShip(dt){
   if(ship.dead){ship.respawn-=dt;if(ship.respawn<=0){if(lives<=0){gameOver();return}
-    ship.dead=false;hull=S.hullMax;shield=S.shieldMax;ship.inv=3;ship.vx=ship.vy=0;ship.x=0;ship.y=rig?150:0;cam.x=ship.x;cam.y=ship.y;
+    ship.dead=false;sfx.respawn();hull=S.hullMax;shield=S.shieldMax;ship.inv=3;ship.vx=ship.vy=0;ship.x=0;ship.y=rig?150:0;cam.x=ship.x;cam.y=ship.y;
     asteroids.forEach(a=>{const d=Math.hypot(a.x-ship.x,a.y-ship.y)||1;if(d<a.r+150){a.vx+=(a.x-ship.x)/d*140;a.vy+=(a.y-ship.y)/d*140}})}return}
   ship.inv=Math.max(0,ship.inv-dt);ship.contactT-=dt;ship.lastHit+=dt;ship.shieldFlash=Math.max(0,ship.shieldFlash-dt*2.5);
   for(const k in ship.pu)ship.pu[k]=Math.max(0,ship.pu[k]-dt);ship.comboT-=dt;if(ship.comboT<=0)ship.combo=0;
@@ -625,7 +716,7 @@ function update(dt){
   if(playing)updateMission(dt);
   updateEnemies(dt,playing);
   // mines
-  for(const m of mines){if(m.dead)continue;m.t+=dt;if(m.t>1&&ship&&!ship.dead&&Math.hypot(ship.x-m.x,ship.y-m.y)<75)detonateMine(m);
+  for(const m of mines){if(m.dead)continue;m.t+=dt;if(m.t>1&&ship&&!ship.dead){const md=Math.hypot(ship.x-m.x,ship.y-m.y);if(md<75)detonateMine(m);else if(md<170)sfx.mineArm()}
     for(const h of holes){const dx=h.x-m.x,dy=h.y-m.y,d=Math.hypot(dx,dy);if(d<h.range){m.x+=dx/d*60*dt;m.y+=dy/d*60*dt;if(d<h.core)m.dead=true}}}
   mines=mines.filter(m=>!m.dead);
   // enemy bullets
@@ -670,7 +761,7 @@ function collectPU(p){const P=PU[p.type];sfx.pu();if(!ship)return;
 function edgePoint(minD){let x,y,t=0;do{const s=Math.floor(Math.random()*4),p=rand(-HALF+60,HALF-60),e=HALF-60;[x,y]=[[p,-e],[e,p],[p,e],[-e,p]][s];t++}
   while(ship&&Math.hypot(x-ship.x,y-ship.y)<minD&&t<20);return[x,y]}
 function spawnEnemyKind(kind){const[x,y]=edgePoint(550);const grp=kind==='kamikaze'?2+(Math.random()<.4?1:0):1;
-  for(let i=0;i<grp;i++)enemies.push(makeEnemy(kind,x+rand(-40,40),y+rand(-40,40)));
+  for(let i=0;i<grp;i++)enemies.push(makeEnemy(kind,x+rand(-40,40),y+rand(-40,40)));sfx.warpIn();
   addPart({k:'ring',x,y,vx:0,vy:0,life:.7,max:.7,size:80,color:'#c77dff'});addPart({k:'flash',x,y,vx:0,vy:0,life:.4,max:.4,size:60,color:'#c77dff'})}
 
 function updateMission(dt){const n=level;
@@ -725,7 +816,7 @@ function updateEnemies(dt,playing){const n=level;
       if(e.burstT<=0){e.burstT=5;const k=10,off=rand(0,TAU);for(let i=0;i<k;i++){const a=off+i/k*TAU;shoot(a,170,8+n*.5,{life:5})}}break}
     case 'dreadnought':{e.spin+=dt*.6;const gx=tx+Math.cos(e.t*.15)*420,gy=ty+Math.sin(e.t*.15)*420,gdx=gx-e.x,gdy=gy-e.y,gd=Math.hypot(gdx,gdy)||1;steer(gdx/gd,gdy/gd,60,80);
       if(clearT>=0||!T){e.bm=null;break}const rage=e.hp<e.maxhp*.4;
-      if(!e.bm){face(.9);e.beamT-=dt;if(e.beamT<=0&&shipOK){const a=Math.atan2(ship.y-e.y,ship.x-e.x);const dir=Math.random()<.5?1:-1;e.bm={ph:'warn',t:0,a:a-dir*.6,dir}}}
+      if(!e.bm){face(.9);e.beamT-=dt;if(e.beamT<=0&&shipOK){const a=Math.atan2(ship.y-e.y,ship.x-e.x);const dir=Math.random()<.5?1:-1;e.bm={ph:'warn',t:0,a:a-dir*.6,dir};sfx.charge()}}
       else{e.bm.t+=dt;e.a+=clamp(angDiff(e.a,e.bm.a),-3*dt,3*dt);
         if(e.bm.ph==='warn'&&e.bm.t>1.1){e.bm.ph='fire';e.bm.t=0;shake=Math.max(shake,8);sfx.nova()}
         else if(e.bm.ph==='fire'){e.bm.a+=e.bm.dir*(rage?.75:.5)*dt;if(shipOK){const ex=Math.cos(e.bm.a),ey=Math.sin(e.bm.a),px=ship.x-e.x,py=ship.y-e.y,t=px*ex+py*ey;
@@ -949,6 +1040,8 @@ function frame(now){const dt=Math.min(1/30,(now-last)/1000);last=now;
   if(state==='play'){update(dt);if(ship&&!ship.dead){const tx=ship.x+ship.vx*.25,ty=ship.y+ship.vy*.25;cam.x+=(tx-cam.x)*Math.min(1,5*dt);cam.y+=(ty-cam.y)*Math.min(1,5*dt)}}
   else if(state==='title'){update(dt);cam.x+=dt*25;cam.y+=dt*10}
   if(state!=='pause')updateFx(dt);
+  musicUpdate();const flying=state==='play'&&ship&&!ship.dead;engineSound(flying&&ship.thrusting,flying?Math.hypot(ship.vx,ship.vy):0);
+  if(flying&&clearT<0&&failT<0&&hull<S.hullMax*.25&&!thr('low',1300))sfx.lowHull();
   const mx=Math.max(0,HALF-SW/2/ZOOM+60),my=Math.max(0,HALF-SH/2/ZOOM+60);if(state!=='title'){cam.x=clamp(cam.x,-mx,mx);cam.y=clamp(cam.y,-my,my)}
   render(now)}catch(err){console.error(err)}
   requestAnimationFrame(frame)}
@@ -963,7 +1056,7 @@ function showTitle(){state='title';level=Math.max(1,level);setupField(2+Math.flo
   <p style="text-align:center">Blast asteroids, grab the ore, fight pirates, and build up your ship across 30 sectors and three regions. After that, the Endless Deep.</p>
   <div class="btns">${sv?`<button class="btn" data-act="continue">Continue · Sector ${sv.level}${sv.stars?` · ${Object.values(sv.stars).reduce((s,v)=>s+v,0)}★`:''}</button>`:''}<button class="btn ${sv?'alt':''}" data-act="new">New game</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button>${installEvt?'<button class="btn alt" data-act="install">Install as app</button>':''}</div>
   <div class="help"><b>Phone:</b> left thumb flies, right thumb aims &amp; fires, buttons at the bottom switch weapon / fire a nova<br>
-  <b>Keyboard:</b> arrows / WASD fly · Space fires · Q/E or 1–5 switch weapons · B nova · P pause<br><b>Mouse:</b> hold to aim &amp; fire at the cursor
+  <b>Keyboard:</b> arrows / WASD fly · Space fires · Q/E or 1–5 switch weapons · B nova · P pause<br><b>Mouse:</b> hold to aim &amp; fire at the cursor<br><b>♪ button:</b> music + sound → sound only → silent
   ${best?`<br><br>Best haul: <span class="credits">${fmt(best)} cr</span>`:''}</div>`)}
 function showBrief(){state='brief';setupField(level,false);const o=objFor(level),R=REGIONS[regionOf(level)];
   showOv(`<div class="kicker">${R.name.toUpperCase()}${stars[level]?' · BEST '+'★'.repeat(stars[level]):''}</div><h2>Sector ${level}</h2><div class="radio"><b>DISPATCH</b>${briefFor(level)}</div>
@@ -977,7 +1070,7 @@ function endLevel(){state='summary';const st=levelStats,n=level;let star=1;if(st
   credits+=starBonus+missionBonus;score+=starBonus+missionBonus;const prevStars=stars[n]||0;stars[n]=Math.max(prevStars,star);
   const oreSum=TYPE_KEYS.reduce((s,k)=>s+st.oreVal[k],0);
   const rows=TYPE_KEYS.filter(k=>st.ore[k]).map(k=>`<span><i class="dot" style="background:${TYPES[k].ore};box-shadow:0 0 8px ${TYPES[k].ore}"></i>${TYPES[k].name} × ${st.ore[k]}</span><span class="v">${fmt(st.oreVal[k])}</span>`).join('');
-  const finale=n===30;level++;saveGame();
+  const finale=n===30;level++;saveGame();for(let i=0;i<star;i++)sfx.star(i);
   showOv(`<div class="kicker">${REGIONS[regionOf(n)].name.toUpperCase()}</div><h2>Sector ${n} complete</h2>
   <div class="stars">${[0,1,2].map(i=>`<span class="${i<star?'on':'off'}">★</span>`).join('')}</div>
   <div class="starlist">★ Complete &nbsp;·&nbsp; ★ No ships lost &nbsp;·&nbsp; ★ No hull damage</div>
@@ -992,7 +1085,7 @@ function showFail(){state='failed';saveGameKeepLevel();
   showOv(`<h2 style="color:#ff7a5a">Sector ${level} failed</h2><p>${failReason} You keep everything you collected.</p>
   <div class="btns"><button class="btn" data-act="launch">Retry sector</button><button class="btn alt" data-act="shop">Shipyard</button></div>`)}
 function saveGameKeepLevel(){saveGame()}
-function gameOver(){state='over';if(score>best){best=score;store.set('orerush_best',best)}const claim=Math.floor(credits*.3);
+function gameOver(){state='over';sfx.over();if(score>best){best=score;store.set('orerush_best',best)}const claim=Math.floor(credits*.3);
   showOv(`<h2 style="color:#ff7a5a">Fleet lost</h2><p>Your last ship went down in sector ${level}.</p>
   <div class="rows"><span>Total haul</span><span class="v credits">${fmt(score)} cr</span><span>Best haul</span><span class="v">${fmt(best)} cr</span></div>
   <p>File an insurance claim to get 3 new ships and retry this sector. The insurer keeps 30% of your credits (${fmt(claim)} cr). Your upgrades stay.</p>
@@ -1054,14 +1147,14 @@ function showShop(){state='shop';computeStats();const n=level;let cards='';
 
 ov.addEventListener('click',e=>{initAudio();const b=e.target.closest('button');if(!b||b.disabled)return;const D=b.dataset;
   const keepScroll=()=>{const p=ov.querySelector('.panel'),s=p?p.scrollTop:0;showShop();const p2=ov.querySelector('.panel');if(p2)p2.scrollTop=s};
-  if(D.tab){shopTab=D.tab;showShop();return}
+  if(D.tab){shopTab=D.tab;sfx.click();showShop();return}
   if(D.buy){const u=UPG.find(x=>x.id===D.buy),c=upgCost(u,upg[D.buy]);if(credits>=c&&upg[D.buy]<u.max){credits-=c;const om=S.hullMax;upg[D.buy]++;computeStats();if(D.buy==='hull')hull+=S.hullMax-om;sfx.buy();saveGame();keepScroll()}return}
   if(D.wbuy){const w=WEAPONS.find(x=>x.id===D.wbuy);if(credits>=w.cost){credits-=w.cost;wl[w.id]=0;weapon=w.id;sfx.buy();saveGame();keepScroll()}return}
   if(D.wup){const w=WEAPONS.find(x=>x.id===D.wup),c=wUpCost(w,wl[w.id]);if(credits>=c&&wl[w.id]<5){credits-=c;wl[w.id]++;sfx.buy();saveGame();keepScroll()}return}
   if(D.equip){weapon=D.equip;sfx.buy();saveGame();keepScroll();return}
   if(D.ship){const d=SHIPS.find(x=>x.id===D.ship);if(credits>=d.cost){credits-=d.cost;ownedShips.push(d.id);shipId=d.id;computeStats();hull=S.hullMax;sfx.buy();saveGame();keepScroll()}return}
   if(D.fly){const ratio=hull/S.hullMax;shipId=D.fly;computeStats();hull=Math.round(S.hullMax*ratio);sfx.buy();saveGame();keepScroll();return}
-  const act=D.act;
+  const act=D.act;if(['new','continue','shop','next','tback','resume','quit','menu','transfer'].includes(act))sfx.click();
   if(act==='new'){resetProgress();store.del(SAVE);showBrief()}
   else if(act==='continue'){const sv=store.get(SAVE);if(!sv)return showTitle();loadGame(sv);level>1?showShop():showBrief()}
   else if(act==='launch')startLevel();
@@ -1087,9 +1180,12 @@ ov.addEventListener('click',e=>{initAudio();const b=e.target.closest('button');i
   else if(act==='menu'){if(state==='shop')saveGame();showTitle()}});
 
 document.getElementById('pauseBtn').addEventListener('click',()=>{initAudio();state==='play'?pauseGame():state==='pause'&&resumeGame()});
-const muteBtn=document.getElementById('muteBtn');const setMuteUI=()=>{muteBtn.style.opacity=muted?.4:1;muteBtn.textContent=muted?'✕':'♪'};
-muteBtn.addEventListener('click',()=>{initAudio();muted=!muted;store.set('orerush_muted',muted);if(master)master.gain.value=muted?0:.32;if(muted)laserSound(false);setMuteUI()});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseGame()});
+const muteBtn=document.getElementById('muteBtn');const SND_LABEL=['Music and sound on','Sound effects only (music off)','All sound off'];
+const setMuteUI=()=>{muteBtn.style.opacity=sndMode===2?.4:1;muteBtn.textContent=['♪','FX','✕'][sndMode];muteBtn.style.fontSize=sndMode===1?'12px':'';muteBtn.title=SND_LABEL[sndMode];muteBtn.setAttribute('aria-label',SND_LABEL[sndMode])};
+muteBtn.addEventListener('click',()=>{initAudio();sndMode=(sndMode+1)%3;store.set('orerush_sound',sndMode);store.set('orerush_muted',sndMode===2);mus.duck=null;applySound();setMuteUI();if(sndMode<2)sfx.click()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){pauseGame();if(AC)AC.suspend()}else if(AC)AC.resume()});
+// browsers only allow sound after a tap or key press, so start audio (and the title music) on the first one
+addEventListener('pointerdown',initAudio);addEventListener('keydown',initAudio);
 
 
 // ================= PWA =================
