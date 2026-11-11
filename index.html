@@ -108,7 +108,7 @@
 <script>
 'use strict';
 // Build number, shown in the main menu. Bump it together with VERSION in sw.js on every push.
-const BUILD=5;
+const BUILD=6;
 // ================= helpers =================
 const TAU=Math.PI*2;
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -284,7 +284,15 @@ const sfx={
 };
 // phone vibration (Android browsers; iPhones don't support it). Toggle with the vibration button, saved in orerush_vibe.
 const canVibe=typeof navigator.vibrate==='function'&&(navigator.maxTouchPoints>0||'ontouchstart' in window);let vibeOn=store.get('orerush_vibe')??true;
-function buzz(p,k='v',ms=90){if(!vibeOn||!canVibe||state!=='play'||thr('z'+k,ms))return;try{navigator.vibrate(p)}catch(e){}}
+// Vibration lengths are stretched (x1.6, at least 40 ms) because short buzzes are too faint to feel on many tablet motors.
+let vibeTried=0,vibeOK=0;
+function buzz(p,k='v',ms=90){if(!vibeOn||!canVibe||state!=='play'||thr('z'+k,ms))return;
+  const q=(Array.isArray(p)?p:[p]).map((v,i)=>i%2?v:Math.max(40,Math.round(v*1.6)));vibeTried++;try{if(navigator.vibrate(q))vibeOK++}catch(e){}}
+function vibeTest(){const m=document.getElementById('vmsg');if(!m)return;
+  if(!vibeOn){m.textContent='Vibration is switched off. Turn it on with the 📳 button at the top.';return}
+  let ok=false;try{ok=navigator.vibrate([300,150,300])}catch(e){}
+  const hist=vibeTried?` During play this session the browser accepted ${vibeOK} of ${vibeTried} vibrations.`:'';
+  m.textContent=(ok?'The browser accepted the vibration. If you felt nothing, check that vibration / haptic feedback is on in Android settings and battery saver is off.':'The browser blocked the vibration on this device.')+hist}
 function laserSound(on){if(!AC||muted){if(laserSnd){try{laserSnd.o.stop()}catch(e){}laserSnd=null}return}
   if(on&&!laserSnd){const o=AC.createOscillator(),o2=AC.createOscillator(),g=AC.createGain(),f=AC.createBiquadFilter();o.type='sawtooth';o.frequency.value=110;o2.type='square';o2.frequency.value=221;
     f.type='lowpass';f.frequency.value=1400;g.gain.value=.05;o.connect(f);o2.connect(f);f.connect(g);g.connect(sfxBus);o.start();o2.start();laserSnd={o,o2,g}}
@@ -1287,7 +1295,7 @@ const totalStars=()=>Object.values(stars).reduce((s,v)=>s+v,0);
 function showTitle(){state='title';level=Math.max(1,level);setupField(2+Math.floor(Math.random()*3),false);const sv=store.get(SAVE);
   showOv(`<h1>ORE RUSH</h1><div class="sub">DEEP-SPACE MINING</div>
   <p style="text-align:center">Blast asteroids, grab the ore, fight pirates, and build up your ship across 40 sectors and four regions. After that, the Endless Deep.</p>
-  <div class="btns">${sv?`<button class="btn" data-act="continue">Continue · Sector ${sv.level}${sv.stars?` · ${Object.values(sv.stars).reduce((s,v)=>s+v,0)}★`:''}</button>`:''}<button class="btn ${sv?'alt':''}" data-act="new">New game</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button>${installEvt?'<button class="btn alt" data-act="install">Install as app</button>':''}<button class="btn alt" data-act="reload">⟳ Reload latest version</button></div>
+  <div class="btns">${sv?`<button class="btn" data-act="continue">Continue · Sector ${sv.level}${sv.stars?` · ${Object.values(sv.stars).reduce((s,v)=>s+v,0)}★`:''}</button>`:''}<button class="btn ${sv?'alt':''}" data-act="new">New game</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button>${installEvt?'<button class="btn alt" data-act="install">Install as app</button>':''}<button class="btn alt" data-act="reload">⟳ Reload latest version</button>${canVibe?'<button class="btn alt" data-act="vtest">📳 Test vibration</button><div id="vmsg" class="help" style="margin-top:0"></div>':''}</div>
   <div class="help" style="margin-top:10px;font-family:Orbitron;letter-spacing:.12em">BUILD ${BUILD}</div>
   <div class="help"><b>Phone:</b> left thumb flies, right thumb aims &amp; fires, buttons at the bottom switch weapon / fire a nova<br>
   <b>Keyboard:</b> arrows / WASD fly · Space fires · Q/E or 1–5 switch weapons · B nova · P pause<br><b>Mouse:</b> hold to aim &amp; fire at the cursor<br><b>♪ button:</b> music + sound → sound only → silent${canVibe?' · <b>📳</b> vibration on / off':''}
@@ -1430,6 +1438,7 @@ ov.addEventListener('click',e=>{initAudio();const b=e.target.closest('button');i
     else blobDl()}
   else if(act==='loadcode')importCode(document.getElementById('imCode').value);
   else if(act==='reload')reloadLatest(b);
+  else if(act==='vtest')vibeTest();
   else if(act==='resume')resumeGame();
   else if(act==='quit')showTitle();
   else if(act==='menu'){if(state==='shop')saveGame();showTitle()}});
