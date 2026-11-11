@@ -42,6 +42,7 @@ in the browser and on his phone, so keep changes playable and explain them in pl
   otherwise installed copies keep the old cache. Tell the owner the new build number after each push; it shows in the main menu.
 - New file that must work offline → add it to `SHELL` in `sw.js`.
 - Balance knobs live in data tables and small formulas (`wstat`, `upgCost`, `wUpCost`, `makeEnemy` HP, `quotaOf`, `defendTime`).
+  `quotaOf(n)` scales with the sector's ore value, your ore multipliers and your firepower (`gearPower`); tune with `QUOTA_K`.
   Economy (see `// ---- economy`): sector unlocks `UPG_REQ`/`WUP_REQ` and `req` on `SHIPS`/`WEAPONS`, overclock `OC_GAIN`/`ocCost`/`wocCost`, Belt `deedCost`/`REGION_BONUS`; all applied in `computeStats()`.
 
 ## Shipping

@@ -108,7 +108,7 @@
 <script>
 'use strict';
 // Build number, shown in the main menu. Bump it together with VERSION in sw.js on every push.
-const BUILD=7;
+const BUILD=8;
 // ================= helpers =================
 const TAU=Math.PI*2;
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -408,7 +408,18 @@ const MISSION_PLAN=('clear clear clear quota boss clear clear defend lode boss '
 const ENDLESS_PLAN=[['clear','storm'],['lode','clear'],['defend','escort'],['quota','lode'],['boss']];
 function missionOf(n){if(n<=LAST_SECTOR)return MISSION_PLAN[n-1];const p=ENDLESS_PLAN[(n-1)%5];return p[Math.floor((n-1)/5)%p.length]}
 const bossOf=n=>n<=30?BOSSES[(Math.floor(n/5)-1)%3]:n<=LAST_SECTOR?'warden':BOSSES[(Math.floor(n/5)-9)%4];
-const quotaOf=n=>Math.round((500+n*150)/10)*10;
+// Ore quota. How fast you can mine depends on firepower, so the quota scales with it:
+// pieces of ore = at least 55 + 1.6 per sector, more if your best weapon out-guns the sector's rocks,
+// priced at what an average piece is worth to you there (sector ore mix x refinery / overclock / Belt bonuses).
+function weaponDps(id){const L=wl[id];if(L<0)return 0;const s=wstat(id,L),r=S.rateMul||1;let d;
+  switch(id){case 'blaster':d=s.dmg*s.n/s.cd*r;break;case 'scatter':d=s.dmg*s.n*.6/s.cd*r;break;case 'laser':d=s.dps;break;
+    case 'plasma':d=(s.dmg+s.splash*1.5)/s.cd*r;break;default:d=s.dmg*(1+s.chain*.45)/s.cd*r}
+  return d*(S.dmgMul||1)*(1+OC_WEAPON*(oc['w_'+id]||0))}
+function gearPower(n){return Math.max(...WEAPONS.map(w=>weaponDps(w.id)))/(4.5*(1+n*.045))}
+let QUOTA_K=38;
+function quotaOf(n){const w=typeWeights(n),t=w.reduce((s,x)=>s+x[1],0),avg=w.reduce((s,[k,v])=>s+TYPES[k].val*v,0)/t;
+  const pieces=Math.max(55+n*1.6,QUOTA_K*Math.pow(gearPower(n),.85));
+  return Math.max(500,Math.round(avg*(S.refine||1)*pieces/50)*50)}
 const defendTime=n=>65+Math.min(35,n);
 const stormTime=n=>70+Math.min(20,Math.floor(n/2));
 const escortTime=n=>80+Math.min(20,Math.floor(n/2));
@@ -521,8 +532,9 @@ function makeAsteroid(x,y,tier,type,vx,vy,kind='rock'){const n=level,T=TYPES[typ
   let hp=(r/7)*T.hard*(1+n*.045);if(kind==='dense')hp*=2.6;if(kind==='volatile')hp*=.7;if(kind==='cache')hp=7+n*.7;
   const P=kind==='volatile'?PAL_VOLATILE:T;
   return{x,y,vx,vy,a:rand(0,TAU),va:rand(-.9,.9)/tier,r,tier,type,kind,hp,maxhp:hp,flash:0,spr:kind==='cache'?null:asteroidSprite(r,P,kind==='dense')}}
-function pickType(n){const w=[['rock',n<11?3:n<21?1.6:.8],['iron',n<21?2.5:1],['gold',n>=2?Math.min(3,n-1):0],['ice',n>=6?1.3:0],['crystal',n>=4?Math.min(3,(n-3)*.6):0],
-  ['plasma',n>=11?Math.min(2.6,(n-10)*.5):0],['void',n>=21?Math.min(2.2,(n-20)*.4):0],['cryo',n>=31?Math.min(2,(n-30)*.35):0]];
+function typeWeights(n){return[['rock',n<11?3:n<21?1.6:.8],['iron',n<21?2.5:1],['gold',n>=2?Math.min(3,n-1):0],['ice',n>=6?1.3:0],['crystal',n>=4?Math.min(3,(n-3)*.6):0],
+  ['plasma',n>=11?Math.min(2.6,(n-10)*.5):0],['void',n>=21?Math.min(2.2,(n-20)*.4):0],['cryo',n>=31?Math.min(2,(n-30)*.35):0]]}
+function pickType(n){const w=typeWeights(n);
   let t=w.reduce((s,x)=>s+x[1],0),r=Math.random()*t;for(const[k,v]of w){r-=v;if(r<=0)return k}return 'rock'}
 function bestType(n){return n>=31?pick(['cryo','void','plasma']):n>=21?pick(['void','plasma','crystal']):n>=11?pick(['plasma','crystal','gold']):n>=4?pick(['crystal','gold']):'gold'}
 function randomSpot(minD){let x,y,t=0;do{x=rand(-HALF+90,HALF-90);y=rand(-HALF+90,HALF-90);t++}while(Math.hypot(x,y)<minD&&t<60);return[x,y]}

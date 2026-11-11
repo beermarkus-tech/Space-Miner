@@ -1,6 +1,6 @@
 // Ore Rush service worker: offline support.
 // Bump VERSION whenever you deploy changes so old caches are cleared. Keep the number equal to BUILD in index.html.
-const VERSION = 'ore-rush-v7';
+const VERSION = 'ore-rush-v8';
 const SHELL = [
   './',
   './index.html',
