@@ -31,7 +31,7 @@ in the browser and on his phone, so keep changes playable and explain them in pl
 ## Save data
 - `localStorage['orerush2_save']` holds `{v:2, level, credits, score, lives, upg, wl, weapon, shipId, ownedShips, bombs, hull, stars, oc, deeds}`.
   `oc` = overclock levels (system ids, and `w_<weapon>` for weapons); `deeds` = sector numbers bought in the Belt tab.
-  `orerush_best` holds the best score, `orerush_sound` the sound mode (0 all, 1 effects only, 2 off; `orerush_muted` is the old flag), `orerush_vibe` vibration on/off. `orerush_save` is the old v1 format, migrated on load.
+  `orerush_best` holds the best score, `orerush_sound` the sound mode (0 all, 1 effects only, 2 off; `orerush_muted` is the old flag), `orerush_vibe` vibration strength (0 off, 1 normal, 2 strong; old saves stored true/false). `orerush_save` is the old v1 format, migrated on load.
 - Save codes are `ORS2:` + base64(JSON). If you change the save shape, keep `loadGame()` tolerant of old saves (defaults for missing keys)
   so players don't lose progress.
 
