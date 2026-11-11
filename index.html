@@ -107,6 +107,8 @@
 <div id="ov" class="ov"></div>
 <script>
 'use strict';
+// Build number, shown in the main menu. Bump it together with VERSION in sw.js on every push.
+const BUILD=5;
 // ================= helpers =================
 const TAU=Math.PI*2;
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -1285,7 +1287,8 @@ const totalStars=()=>Object.values(stars).reduce((s,v)=>s+v,0);
 function showTitle(){state='title';level=Math.max(1,level);setupField(2+Math.floor(Math.random()*3),false);const sv=store.get(SAVE);
   showOv(`<h1>ORE RUSH</h1><div class="sub">DEEP-SPACE MINING</div>
   <p style="text-align:center">Blast asteroids, grab the ore, fight pirates, and build up your ship across 40 sectors and four regions. After that, the Endless Deep.</p>
-  <div class="btns">${sv?`<button class="btn" data-act="continue">Continue · Sector ${sv.level}${sv.stars?` · ${Object.values(sv.stars).reduce((s,v)=>s+v,0)}★`:''}</button>`:''}<button class="btn ${sv?'alt':''}" data-act="new">New game</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button>${installEvt?'<button class="btn alt" data-act="install">Install as app</button>':''}</div>
+  <div class="btns">${sv?`<button class="btn" data-act="continue">Continue · Sector ${sv.level}${sv.stars?` · ${Object.values(sv.stars).reduce((s,v)=>s+v,0)}★`:''}</button>`:''}<button class="btn ${sv?'alt':''}" data-act="new">New game</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button>${installEvt?'<button class="btn alt" data-act="install">Install as app</button>':''}<button class="btn alt" data-act="reload">⟳ Reload latest version</button></div>
+  <div class="help" style="margin-top:10px;font-family:Orbitron;letter-spacing:.12em">BUILD ${BUILD}</div>
   <div class="help"><b>Phone:</b> left thumb flies, right thumb aims &amp; fires, buttons at the bottom switch weapon / fire a nova<br>
   <b>Keyboard:</b> arrows / WASD fly · Space fires · Q/E or 1–5 switch weapons · B nova · P pause<br><b>Mouse:</b> hold to aim &amp; fire at the cursor<br><b>♪ button:</b> music + sound → sound only → silent${canVibe?' · <b>📳</b> vibration on / off':''}
   ${best?`<br><br>Best haul: <span class="credits">${fmt(best)} cr</span>`:''}</div>`)}
@@ -1426,6 +1429,7 @@ ov.addEventListener('click',e=>{initAudio();const b=e.target.closest('button');i
     if(window.claude&&window.claude.use){tmsg('Preparing file…',true);window.claude.use('downloads').then(dl=>{if(!dl)return blobDl();return dl.save({filename:fname,data}).then(()=>tmsg('Save file downloaded.',true),()=>tmsg('Download cancelled. You can use Copy code instead.'))}).catch(blobDl)}
     else blobDl()}
   else if(act==='loadcode')importCode(document.getElementById('imCode').value);
+  else if(act==='reload')reloadLatest(b);
   else if(act==='resume')resumeGame();
   else if(act==='quit')showTitle();
   else if(act==='menu'){if(state==='shop')saveGame();showTitle()}});
@@ -1443,6 +1447,11 @@ addEventListener('pointerdown',initAudio);addEventListener('keydown',initAudio);
 
 
 // ================= PWA =================
+// Drop the offline cache and service worker, then load the page fresh from the server (your save is kept).
+async function reloadLatest(btn){if(btn){btn.disabled=true;btn.textContent='Loading latest version…'}
+  try{if(window.caches)for(const k of await caches.keys())await caches.delete(k)}catch(e){}
+  try{if(navigator.serviceWorker)for(const r of await navigator.serviceWorker.getRegistrations())await r.unregister()}catch(e){}
+  location.replace(location.pathname+'?v='+Date.now())}
 let installEvt=null;
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(state==='title')showTitle()});
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})});

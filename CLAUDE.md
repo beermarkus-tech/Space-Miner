@@ -38,7 +38,8 @@ in the browser and on his phone, so keep changes playable and explain them in pl
 ## Conventions
 - Keep it one self-contained `index.html` unless the owner asks to split it.
 - Everything must work with touch (twin-stick) **and** keyboard/mouse. Test phone layouts around 390×780.
-- **When you change any shipped file, bump `VERSION` in `sw.js`**, otherwise installed copies keep the old cache.
+- **On every push, bump `BUILD` in `index.html` and `VERSION` in `sw.js` to the same next number** (`BUILD=6` ↔ `'ore-rush-v6'`),
+  otherwise installed copies keep the old cache. Tell the owner the new build number after each push; it shows in the main menu.
 - New file that must work offline → add it to `SHELL` in `sw.js`.
 - Balance knobs live in data tables and small formulas (`wstat`, `upgCost`, `wUpCost`, `makeEnemy` HP, `quotaOf`, `defendTime`).
   Economy (see `// ---- economy`): sector unlocks `UPG_REQ`/`WUP_REQ` and `req` on `SHIPS`/`WEAPONS`, overclock `OC_GAIN`/`ocCost`/`wocCost`, Belt `deedCost`/`REGION_BONUS`; all applied in `computeStats()`.

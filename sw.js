@@ -1,6 +1,6 @@
 // Ore Rush service worker: offline support.
-// Bump VERSION whenever you deploy changes so old caches are cleared.
-const VERSION = 'ore-rush-v4';
+// Bump VERSION whenever you deploy changes so old caches are cleared. Keep the number equal to BUILD in index.html.
+const VERSION = 'ore-rush-v5';
 const SHELL = [
   './',
   './index.html',
@@ -31,7 +31,7 @@ self.addEventListener('fetch', (event) => {
   // The game page: network first so updates arrive, cache as offline fallback.
   if (req.mode === 'navigate' || (url.origin === location.origin && url.pathname.endsWith('.html'))) {
     event.respondWith(
-      fetch(req)
+      fetch(req.url, { cache: 'no-cache' })
         .then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put('./index.html', copy)); return res; })
         .catch(() => caches.match('./index.html'))
     );
