@@ -39,6 +39,11 @@ in the browser and on his phone, so keep changes playable and explain them in pl
 - New file that must work offline → add it to `SHELL` in `sw.js`.
 - Balance knobs live in data tables and small formulas (`wstat`, `upgCost`, `wUpCost`, `makeEnemy` HP, `quotaOf`, `defendTime`).
 
+## Shipping
+- The owner wants finished work merged to `main` automatically, without asking (GitHub Pages deploys from `main`).
+  After testing and pushing the feature branch, merge it into `main` (fast-forward when possible) and push `main`.
+  If the merge has conflicts or tests fail, stop and tell the owner instead of forcing it.
+
 ## Testing
 No test suite. Serve with `python3 -m http.server` and play, or drive it headlessly with Playwright.
 Handy console cheats: `credits=50000;showShop()`, `level=15;startLevel()`, `asteroids.forEach(a=>breakAsteroid(a))`.
