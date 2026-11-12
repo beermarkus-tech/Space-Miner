@@ -86,6 +86,11 @@
   .card button.eqb{border-color:rgba(94,240,255,.6);background:rgba(94,240,255,.1);color:var(--cyan)}
   .card button:disabled{opacity:.35;cursor:default}
   .stat{font-size:12px;color:#7ff7ff}
+  #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);max-width:min(92vw,520px);background:rgba(8,12,26,.94);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;color:#dfe9ff;z-index:30;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center}
+  #toast.show{opacity:1}
+  .syncside{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px;line-height:1.5;background:rgba(94,240,255,.04)}
+  .syncside span{font-size:12.5px;color:#93a8c6}
+  input.code1{width:100%;background:rgba(0,0,0,.35);color:#e9f6ff;border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:15px 'Exo 2',sans-serif;user-select:text;-webkit-user-select:text;touch-action:auto}
   .belt{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:4px}
   .card button.deed{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-color:color-mix(in srgb,var(--rc) 55%,transparent);background:rgba(255,255,255,.03);color:#e9f6ff}
   .card button.deed small{font-size:10px;color:#ffc845;font-family:'Exo 2'}
@@ -108,7 +113,7 @@
 <script>
 'use strict';
 // Build number, shown in the main menu. Bump it together with VERSION in sw.js on every push.
-const BUILD=8;
+const BUILD=9;
 // ================= helpers =================
 const TAU=Math.PI*2;
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -496,7 +501,7 @@ function objFor(n){const m=missionOf(n);return{clear:['☄','CLEAR THE FIELD','D
   boss:['☠','BOSS: '+BOSS_NAME[bossOf(n)],bossOf(n)==='warden'?'Destroy the pylons to drop its shield, then hit the core.':'Destroy it. Asteroids optional.']}[m]}
 
 // ================= state =================
-let oc={},deeds=[];
+let oc={},deeds=[],playT=0;  // playT: seconds spent flying sectors (shown in cloud-save questions)
 let state='title',level=1,credits=0,score=0,lives=3,upg={},wl={},weapon='blaster',shipId='prospector',ownedShips=['prospector'],bombs=1,stars={},S={},hull=100,shield=30;
 let ship=null,asteroids=[],bullets=[],ebullets=[],missiles=[],enemies=[],ores=[],pus=[],mines=[],holes=[],blasts=[],arcs=[],parts=[],texts=[],rig=null,beam=null;
 let WORLD=2000,HALF=1000,cam={x:0,y:0},shake=0,levelTime=0,clearT=-1,failT=-1,failReason='',spawnQ=[],spawnT=0,levelStats=null,nebula=null,planet=null,planetPos={x:.75,y:.28};
@@ -505,7 +510,7 @@ let mission='clear',missionT=0,quota=0,quotaGot=0,refillT=0,banner=null,isTouch=
 const SAVE='orerush2_save';
 
 function resetProgress(){level=1;credits=0;score=0;lives=3;upg={};UPG.forEach(u=>upg[u.id]=0);wl={};WEAPONS.forEach(w=>wl[w.id]=-1);wl.blaster=0;weapon='blaster';
-  shipId='prospector';ownedShips=['prospector'];bombs=1;stars={};oc={};deeds=[];computeStats();hull=S.hullMax}
+  shipId='prospector';ownedShips=['prospector'];bombs=1;stars={};oc={};deeds=[];playT=0;computeStats();hull=S.hullMax}
 function computeStats(){const sh=SHIPS.find(s=>s.id===shipId),u=upg;
   S={sh,r:sh.r,thrust:470*(1+.14*u.engine)*sh.speed,maxV:320*(1+.1*u.engine)*sh.speed,shieldMax:Math.round((30+22*u.shield)*sh.shield),shieldRegen:(7+4*u.shield)*sh.shield,
     hullMax:Math.round((100+35*u.hull)*sh.hull),magnet:110+55*u.magnet,refine:1+.12*u.refinery,dmgMul:sh.dmg,rateMul:sh.rate,
@@ -516,9 +521,9 @@ function computeStats(){const sh=SHIPS.find(s=>s.id===shipId),u=upg;
   S.hullMax=Math.round(S.hullMax*(1+OC_GAIN.hull*o('hull'))*(rb[2]?1.15:1));S.magnet*=1+OC_GAIN.magnet*o('magnet');
   S.refine*=(1+OC_GAIN.refinery*o('refinery'))*(1+.01*deeds.length)*(rb[0]?1.1:1);
   S.missMul=1+OC_GAIN.missile*o('missile');S.wingMul=1+OC_GAIN.wing*o('wing');if(rb[1])S.dmgMul*=1.1;if(rb[3])S.rateMul*=1.1}
-function saveGame(){store.set(SAVE,{v:2,level,credits,score,lives,upg,wl,weapon,shipId,ownedShips,bombs,hull,stars,oc,deeds})}
+function saveGame(){store.set(SAVE,{v:2,level,credits,score,lives,upg,wl,weapon,shipId,ownedShips,bombs,hull,stars,oc,deeds,playT:Math.round(playT)});if(typeof syncSoon==='function')syncSoon()}
 function loadGame(sv){resetProgress();level=sv.level;credits=sv.credits;score=sv.score;lives=sv.lives;Object.assign(upg,sv.upg||{});Object.assign(wl,sv.wl||{});
-  weapon=sv.weapon||'blaster';shipId=sv.shipId||'prospector';ownedShips=sv.ownedShips||['prospector'];bombs=sv.bombs??1;stars=sv.stars||{};oc=sv.oc||{};deeds=Array.isArray(sv.deeds)?sv.deeds:[];computeStats();hull=sv.hull??S.hullMax}
+  weapon=sv.weapon||'blaster';shipId=sv.shipId||'prospector';ownedShips=sv.ownedShips||['prospector'];bombs=sv.bombs??1;stars=sv.stars||{};oc=sv.oc||{};deeds=Array.isArray(sv.deeds)?sv.deeds:[];playT=+sv.playT||0;computeStats();hull=sv.hull??S.hullMax}
 (function migrate(){if(store.get(SAVE))return;const o=store.get('orerush_save');if(!o)return;resetProgress();
   level=o.level;credits=o.credits;score=o.score;lives=o.lives;const ou=o.upg||{};['engine','shield','hull','magnet','missile'].forEach(k=>upg[k]=ou[k]||0);
   wl.blaster=Math.min(5,Math.max(ou.blaster||0,ou.rate||0,ou.spread||0));computeStats();hull=Math.min(o.hull??S.hullMax,S.hullMax);saveGame()})();
@@ -1294,7 +1299,7 @@ function drawHUD(t){const m=12,small=SW<500,w=small?132:184;
 let last=performance.now();
 function frame(now){const dt=Math.min(1/30,(now-last)/1000);last=now;
   try{
-  if(state==='play'){update(dt);if(ship&&!ship.dead){const tx=ship.x+ship.vx*.25,ty=ship.y+ship.vy*.25;cam.x+=(tx-cam.x)*Math.min(1,5*dt);cam.y+=(ty-cam.y)*Math.min(1,5*dt)}}
+  if(state==='play'){playT+=dt;update(dt);if(ship&&!ship.dead){const tx=ship.x+ship.vx*.25,ty=ship.y+ship.vy*.25;cam.x+=(tx-cam.x)*Math.min(1,5*dt);cam.y+=(ty-cam.y)*Math.min(1,5*dt)}}
   else if(state==='title'){update(dt);cam.x+=dt*25;cam.y+=dt*10}
   if(state!=='pause')updateFx(dt);
   musicUpdate();const flying=state==='play'&&ship&&!ship.dead;engineSound(flying&&ship.thrusting,flying?Math.hypot(ship.vx,ship.vy):0);
@@ -1305,13 +1310,14 @@ function frame(now){const dt=Math.min(1/30,(now-last)/1000);last=now;
 
 // ================= overlays =================
 const ov=document.getElementById('ov');
-function showOv(html){ov.innerHTML=`<div class="panel">${html}</div>`;ov.classList.add('show');ov.querySelector('.panel').scrollTop=0;document.body.classList.remove('playing','paused');laserSound(false)}
+function showOv(html){if(typeof SY!=='undefined'&&SY.deferred&&canAsk()&&!SY.busy&&!SY.asking){SY.deferred=false;setTimeout(()=>syncNow(false),400)}
+  ov.innerHTML=`<div class="panel">${html}</div>`;ov.classList.add('show');ov.querySelector('.panel').scrollTop=0;document.body.classList.remove('playing','paused');laserSound(false)}
 function hideOv(){ov.classList.remove('show');ov.innerHTML='';document.body.classList.remove('paused')}
 const totalStars=()=>Object.values(stars).reduce((s,v)=>s+v,0);
 function showTitle(){state='title';level=Math.max(1,level);setupField(2+Math.floor(Math.random()*3),false);const sv=store.get(SAVE);
   showOv(`<h1>ORE RUSH</h1><div class="sub">DEEP-SPACE MINING</div>
   <p style="text-align:center">Blast asteroids, grab the ore, fight pirates, and build up your ship across 40 sectors and four regions. After that, the Endless Deep.</p>
-  <div class="btns">${sv?`<button class="btn" data-act="continue">Continue · Sector ${sv.level}${sv.stars?` · ${Object.values(sv.stars).reduce((s,v)=>s+v,0)}★`:''}</button>`:''}<button class="btn ${sv?'alt':''}" data-act="new">New game</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button>${installEvt?'<button class="btn alt" data-act="install">Install as app</button>':''}<button class="btn alt" data-act="reload">⟳ Reload latest version</button>${canVibe?'<button class="btn alt" data-act="vtest">📳 Test vibration</button><div id="vmsg" class="help" style="margin-top:0"></div>':''}</div>
+  <div class="btns">${sv?`<button class="btn" data-act="continue">Continue · Sector ${sv.level}${sv.stars?` · ${Object.values(sv.stars).reduce((s,v)=>s+v,0)}★`:''}</button>`:''}<button class="btn ${sv?'alt':''}" data-act="new">New game</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button>${installEvt?'<button class="btn alt" data-act="install">Install as app</button>':''}<button class="btn alt" data-act="cloud">☁ Cloud save <span id="syncSt" style="display:block;font-family:'Exo 2';font-size:12px;font-weight:600;letter-spacing:0;color:#93a8c6;margin-top:3px">${SC.token?syncStatus():'Not connected'}</span></button><button class="btn alt" data-act="reload">⟳ Reload latest version</button>${canVibe?'<button class="btn alt" data-act="vtest">📳 Test vibration</button><div id="vmsg" class="help" style="margin-top:0"></div>':''}</div>
   <div class="help" style="margin-top:10px;font-family:Orbitron;letter-spacing:.12em">BUILD ${BUILD}</div>
   <div class="help"><b>Phone:</b> left thumb flies, right thumb aims &amp; fires, buttons at the bottom switch weapon / fire a nova<br>
   <b>Keyboard:</b> arrows / WASD fly · Space fires · Q/E or 1–5 switch weapons · B nova · P pause<br><b>Mouse:</b> hold to aim &amp; fire at the cursor<br><b>♪ button:</b> music + sound → sound only → silent${canVibe?' · <b>📳</b> vibration: normal → strong (📳+) → off':''}
@@ -1376,7 +1382,8 @@ function showTransfer(from){transferBack=from;if(from==='shop')saveGame();state=
 function tmsg(t,ok){const m=document.getElementById('tmsg');if(m){m.textContent=t;m.style.color=ok?'#7dff7a':'#ff7a5a'}}
 function importCode(txt){let sv;try{sv=parseCode(txt)}catch(e){tmsg("That code doesn't look like an Ore Rush save.");return}
   if(sv.best&&sv.best>best){best=sv.best;store.set('orerush_best',best)}delete sv.best;store.set(SAVE,sv);loadGame(sv);sfx.buy();
-  tmsg(`Loaded: sector ${sv.level}, ${fmt(sv.credits)} cr.`,true);setTimeout(()=>{level>1?showShop():showBrief()},900)}
+  tmsg(`Loaded: sector ${sv.level}, ${fmt(sv.credits)} cr.`,true);const go=()=>{level>1?showShop():showBrief()};
+  setTimeout(async()=>{if(SC.token&&!SC.paused)await syncImportAsk();go()},900)}
 
 const shipImgCache={};
 function shipImg(d){if(shipImgCache[d.id])return shipImgCache[d.id];const c=document.createElement('canvas');c.width=200;c.height=150;const g=c.getContext('2d');
@@ -1432,7 +1439,7 @@ ov.addEventListener('click',e=>{initAudio();const b=e.target.closest('button');i
   if(D.equip){weapon=D.equip;sfx.buy();saveGame();keepScroll();return}
   if(D.ship){const d=SHIPS.find(x=>x.id===D.ship);if(credits>=d.cost&&level>=(d.req||0)){credits-=d.cost;ownedShips.push(d.id);shipId=d.id;computeStats();hull=S.hullMax;sfx.buy();saveGame();keepScroll()}return}
   if(D.fly){const ratio=hull/S.hullMax;shipId=D.fly;computeStats();hull=Math.round(S.hullMax*ratio);sfx.buy();saveGame();keepScroll();return}
-  const act=D.act;if(['new','continue','shop','next','tback','resume','quit','menu','transfer'].includes(act))sfx.click();
+  const act=D.act;if(SYNC_ACT[act]){SYNC_ACT[act](D);return}if(act==='cloud'){sfx.click();showCloud();return}if(['new','continue','shop','next','tback','resume','quit','menu','transfer'].includes(act))sfx.click();
   if(act==='new'){resetProgress();store.del(SAVE);showBrief()}
   else if(act==='continue'){const sv=store.get(SAVE);if(!sv)return showTitle();loadGame(sv);level>1?showShop():showBrief()}
   else if(act==='launch')startLevel();
@@ -1472,6 +1479,153 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){pauseGame(
 addEventListener('pointerdown',initAudio);addEventListener('keydown',initAudio);
 
 
+// ================= cloud save sync =================
+/* Cloud save: one game on all devices, via a private GitHub Gist. Same design as Frontier Works (js/sync.js), adapted to Ore Rush's save.
+   Gist (found by its description GIST_DESC) files: orerush-save.txt (ORS2 save code), orerush-meta.json {ver,dev,name,time,level,score,stars,t},
+   orerush-live.json {dev,name,time,closed} ("playing now"), orerush-backup.txt (the cloud save a forced upload replaced).
+   Rules:
+   - A device uploads only if the cloud still holds the version it started from (its base: SC.base = meta.ver, SC.baseDev = meta.dev).
+   - "Played since the base" = the local save changed since then (SC.baseSig is a fingerprint of the save at the base).
+   - Cloud newer + this device not played since its base → load automatically (a local copy is kept for "Undo last sync").
+   - Both played, first connection to a non-empty cloud, or a cloud save that looks older (lower sector / score) → ask.
+   - A normal upload never lowers the cloud's progress (e.g. after "New game"): ask instead.
+   - Another device played in the last 3 minutes and didn't close → ask before taking over.
+   - The losing game is always kept: forced upload → old cloud save in orerush-backup.txt; cloud load → local copy in PRESYNC.
+   - After Undo or a "this device only" import, sync pauses; Resume asks which game to keep (as on first connection).
+   - Questions and cloud loads wait until you're in a menu (never in the middle of a sector). The token stays in localStorage only. */
+const SYNC_KEY='orerush_sync',PRESYNC='orerush_presync',GH='https://api.github.com',GIST_DESC='Ore Rush save (managed by the game, do not edit)';
+const GF={save:'orerush-save.txt',meta:'orerush-meta.json',live:'orerush-live.json',backup:'orerush-backup.txt'};
+const TOKEN_URL='https://github.com/settings/tokens/new?scopes=gist&description=Ore%20Rush';
+const SY={st:'',busy:false,asking:false,hold:false,liveOk:false,lastBeat:0,ans:null,undo:!!store.get(PRESYNC),deferred:false,prev:'title'};
+let SC=store.get(SYNC_KEY)||{};if(!SC.dev){SC.dev=Math.random().toString(36).slice(2,10);store.set(SYNC_KEY,SC)}
+const scSave=()=>store.set(SYNC_KEY,SC);
+function devGuess(){const u=navigator.userAgent;return /iPad|Tablet/i.test(u)||(/Android/i.test(u)&&!/Mobile/i.test(u))?'Tablet':/Mobi|iPhone|Android/i.test(u)?'Phone':'Computer'}
+const syncAgo=t=>{const s=(Date.now()-t)/1000;return s<60?'just now':s<3600?`${Math.round(s/60)} min ago`:s<86400?`${Math.round(s/3600)} h ago`:`${Math.round(s/86400)} days ago`};
+const playStr=t=>{const m=Math.round((t||0)/60);return m<60?`${m} min`:`${Math.floor(m/60)} h ${m%60} min`};
+const rawSave=()=>{try{return localStorage.getItem(SAVE)||''}catch(e){return ''}};
+const sig=t=>{if(!t)return '';let h=5381;for(let i=0;i<t.length;i++)h=(h*33+t.charCodeAt(i))|0;return h.toString(36)+'.'+t.length};
+function syncSum(){const sv=store.get(SAVE);return sv?{level:sv.level,score:sv.score||0,stars:Object.values(sv.stars||{}).reduce((a,b)=>a+b,0),t:Math.round(sv.playT||0)}:null}
+const syncDirty=()=>!SC.base||sig(rawSave())!==SC.baseSig;
+const syncIsBase=m=>!!SC.base&&m.ver===SC.base&&m.dev===SC.baseDev;
+const progLess=(a,b)=>a.level<b.level||(a.level===b.level&&(a.score||0)<(b.score||0));   // a has less progress than b
+const syncOlder=m=>{const s=syncSum();return !!s&&progLess(m,s)};
+const canAsk=()=>['title','shop','brief','cloud','transfer'].includes(state);
+async function gh(path,opt){opt=opt||{};const r=await fetch(GH+path,{method:opt.method||'GET',cache:'no-cache',body:opt.body,keepalive:!!opt.keepalive,
+  headers:Object.assign({Authorization:'Bearer '+SC.token,Accept:'application/vnd.github+json'},opt.body?{'Content-Type':'application/json'}:{})});
+  if(r.status===401||r.status===403)throw Object.assign(new Error('GitHub refused the key. Check that it has the “gist” permission.'),{auth:1});
+  if(r.status===404)throw Object.assign(new Error('not found'),{nf:1});
+  if(!r.ok)throw new Error('GitHub error '+r.status);return r.json()}
+async function syncFile(f){if(!f)return null;if(f.truncated){const r=await fetch(f.raw_url,{cache:'no-cache'});return r.text()}return f.content}
+async function cloudGet(){
+  if(!SC.gist){const list=await gh('/gists?per_page=100');const g=list.find(g=>g.description===GIST_DESC);if(!g)return null;SC.gist=g.id;scSave()}
+  let g;try{g=await gh('/gists/'+SC.gist)}catch(e){if(e.nf){SC.gist=null;SC.base=null;scSave();return null}throw e}
+  const f=g.files||{},js=async n=>{const t=await syncFile(f[n]);try{return t?JSON.parse(t):null}catch(e){return null}};
+  return{meta:await js(GF.meta),live:await js(GF.live),save:f[GF.save]}}
+const liveFile=closed=>({content:JSON.stringify({dev:SC.dev,name:SC.name,time:Date.now(),closed:!!closed})});
+async function cloudPut(c,force,closed,keepalive){
+  const txt=saveCode();if(!txt)throw new Error('There is no saved game on this device yet');
+  const ver=((c&&c.meta&&c.meta.ver)||0)+1,meta=Object.assign({ver,dev:SC.dev,name:SC.name,time:Date.now()},syncSum());
+  const files={[GF.save]:{content:txt},[GF.meta]:{content:JSON.stringify(meta)},[GF.live]:liveFile(closed)};
+  if(force&&c&&c.save){const old=await syncFile(c.save);if(old)files[GF.backup]={content:old}}
+  if(SC.gist)await gh('/gists/'+SC.gist,{method:'PATCH',body:JSON.stringify({files}),keepalive});
+  else{const g=await gh('/gists',{method:'POST',body:JSON.stringify({description:GIST_DESC,public:false,files})});SC.gist=g.id}
+  SC.base=ver;SC.baseDev=SC.dev;SC.baseSig=sig(rawSave());SC.last=Date.now();scSave();SY.lastBeat=Date.now()}
+async function cloudLoad(c){const txt=await syncFile(c.save);if(!txt)throw new Error('The cloud save is empty');
+  const sv=parseCode(txt),cur=rawSave();if(cur){store.set(PRESYNC,{raw:cur,t:Date.now()});SY.undo=true}
+  if(sv.best&&sv.best>best){best=sv.best;store.set('orerush_best',best)}delete sv.best;store.set(SAVE,sv);loadGame(sv);
+  SC.base=c.meta.ver;SC.baseDev=c.meta.dev;SC.baseSig=sig(rawSave());SC.last=Date.now();scSave();if(canAsk()||state==='syncask')showTitle()}
+/* small message at the bottom of the screen */
+let toastT=0;function toast(t){let el=document.getElementById('toast');if(!el){el=document.createElement('div');el.id='toast';document.body.appendChild(el)}
+  el.textContent=t;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),4200)}
+/* questions: a promise that the dialog buttons resolve; afterwards the previous screen comes back */
+function syncBack(){const s=SY.prev;s==='shop'?showShop():s==='brief'?showBrief():s==='cloud'?showCloud():s==='transfer'?showTransfer(transferBack):showTitle()}
+function syncAsk(html,noBack){SY.asking=true;if(state!=='syncask')SY.prev=state;state='syncask';showOv(html);
+  return new Promise(res=>{SY.ans=v=>{SY.ans=null;SY.asking=false;if(!noBack)syncBack();res(v)}})}
+const sumLine=(who,s,when)=>`<div class="syncside"><b>${who}</b><br>${s?`Sector ${s.level} · ${fmt(s.score)} cr total haul · ${s.stars}★ · ${playStr(s.t)} played`:'No saved game yet'}${when?`<br><span>${when}</span>`:''}</div>`;
+async function syncConflict(c,why){const m=c.meta,loc=syncSum(),head={first:'A cloud save already exists',down:'The cloud save looks older',both:'Both devices have new progress',
+    less:'This device has less progress than the cloud'}[why];
+  const v=await syncAsk(`<h2>☁ ${head}</h2><p>Which game do you want to keep? The other one is kept as a backup.</p>
+    ${sumLine('This device ('+(SC.name||'this device')+')',loc,SC.last?'last synced '+syncAgo(SC.last):'')}${sumLine('Cloud (from '+(m.name||'another device')+')',m,'saved '+syncAgo(m.time))}
+    <div class="btns"><button class="btn" data-act="syncAns" data-v="local" ${loc?'':'disabled'}>Keep this device’s game</button>
+    <button class="btn alt" data-act="syncAns" data-v="cloud">Use the cloud game</button><button class="btn alt" data-act="syncAns" data-v="later">Decide later</button></div>`);
+  SY.busy=true;   // loading/uploading now: keep timed syncs out until syncNow's finally
+  if(v==='local'){await cloudPut(c,true);toast('☁ This device’s game is now the cloud save (the old one is kept as a backup)')}
+  else if(v==='cloud'){await cloudLoad(c);toast(`☁ Loaded the cloud game from ${m.name||'another device'}`)}
+  else{SY.hold=true;SY.st='hold'}}
+function syncStatus(){return SC.paused?'⏸ Paused on this device':SY.st==='busy'?'☁ Syncing…':SY.st==='offline'?'☁ Offline, will sync when online':
+  SY.st==='hold'?'☁ Waiting for your decision (Sync now asks again)':SY.st==='wait'?'☁ Will finish syncing when you’re back in the menu':
+  SY.st&&SY.st[0]==='⚠'?SY.st:SC.last?`☁ Synced ${syncAgo(SC.last)} · ${SC.name}`:'☁ Connected'}
+function syncRedraw(){const el=document.getElementById('syncSt');if(el)el.textContent=SC.token?syncStatus():'Not connected';if(state==='cloud'&&SC.token)showCloud()}
+function syncSt(s){SY.st=s;syncRedraw()}
+async function syncNow(manual){
+  if(!SC.token||SY.busy||SY.asking)return;if(SC.paused){if(manual)toast('Cloud sync is paused on this device');return}
+  if(manual)SY.hold=false;if(SY.hold)return;
+  SY.busy=true;syncSt('busy');
+  try{const c=await cloudGet();
+    if(!c||!c.meta){if(rawSave()){await cloudPut(c,false);toast('☁ Game saved to the cloud')}SC.last=Date.now();scSave();syncSt('ok');return}
+    const m=c.meta,L=c.live;
+    if(syncIsBase(m)){
+      if(syncDirty()){const s=syncSum();
+        if(s&&progLess(s,m)){if(!canAsk()){SY.deferred=true;syncSt('wait');return}SY.busy=false;await syncConflict(c,'less');if(SY.st!=='hold')syncSt('ok');return}
+        if(s)await cloudPut(c,false)}
+      else if(!document.hidden&&Date.now()-SY.lastBeat>120000){await gh('/gists/'+SC.gist,{method:'PATCH',body:JSON.stringify({files:{[GF.live]:liveFile(false)}})});SY.lastBeat=Date.now()}
+      SC.last=Date.now();scSave();syncSt('ok');if(manual)toast('☁ Up to date');return}
+    // the cloud changed (or this is the first connection): loading or asking happens only in a menu
+    if(!canAsk()){SY.deferred=true;syncSt('wait');return}
+    if(!SY.liveOk&&L&&L.dev!==SC.dev&&!L.closed&&Date.now()-L.time<180000){SY.busy=false;
+      const go=await syncAsk(`<h2>☁ ${L.name||'Another device'} is playing</h2><p>Your ${L.name||'other device'} was playing ${syncAgo(L.time)}. Continue here anyway?
+        If you do, close the game there first so both don’t change the same save.</p><div class="btns"><button class="btn" data-act="syncAns" data-v="1">Continue here</button><button class="btn alt" data-act="syncAns" data-v="">Not now</button></div>`);
+      SY.busy=true;if(!go){SY.hold=true;syncSt('hold');return}SY.liveOk=true}
+    SY.busy=false;
+    if(!SC.base)await syncConflict(c,'first');
+    else if(!syncDirty()){if(syncOlder(m))await syncConflict(c,'down');else{SY.busy=true;await cloudLoad(c);toast(`☁ Loaded newer game from ${m.name||'another device'} (sector ${m.level})`)}}
+    else await syncConflict(c,'both');
+    if(SY.st!=='hold')syncSt('ok');
+  }catch(e){SY.asking=false;syncSt(e.auth?'⚠ '+e.message:(navigator.onLine===false||e instanceof TypeError)?'offline':'⚠ '+e.message)}
+  finally{SY.busy=false;syncRedraw()}}
+/* leaving the app: upload if changed, mark "closed" so the other device doesn't warn */
+async function syncLeave(){if(!SC.token||SC.paused||SY.busy||SY.asking||SY.hold)return;
+  try{SY.busy=true;const c=await cloudGet();if(c&&c.meta&&syncIsBase(c.meta)){const s=syncSum();
+    if(syncDirty()&&s&&!progLess(s,c.meta))await cloudPut(c,false,true,true);
+    else await gh('/gists/'+SC.gist,{method:'PATCH',body:JSON.stringify({files:{[GF.live]:liveFile(true)}}),keepalive:true})}}catch(e){}finally{SY.busy=false}}
+/* the Cloud save screen (from the main menu) */
+function showCloud(){state='cloud';
+  if(!SC.token){showOv(`<h2>☁ Cloud save</h2><p>Keep one Ore Rush game on all your devices. Your save is stored in a private Gist on your own GitHub account.</p>
+    <p style="font-size:13.5px;color:#93a8c6">You need a GitHub key that can only use Gists. Open <a href="${TOKEN_URL}" target="_blank" rel="noopener" style="color:#5ef0ff;word-break:break-all">${TOKEN_URL}</a>,
+    sign in, set an expiration you like, keep only <b>gist</b> ticked, press <b>Generate token</b> and copy the key (it starts with ghp_). Use the same key on each device.</p>
+    <div class="kicker" style="margin-top:12px">GITHUB KEY</div><input type="password" id="syncTok" class="code1" placeholder="ghp_…" autocomplete="off">
+    <div class="kicker" style="margin-top:10px">NAME OF THIS DEVICE</div><input id="syncName" class="code1" value="${(SC.name||devGuess()).replace(/"/g,'')}">
+    <div class="btns"><button class="btn" data-act="syncConnect">☁ Connect</button><button class="btn alt" data-act="menu">Back</button></div>
+    <div class="help">The key is stored only on this device.</div>`);return}
+  showOv(`<h2>☁ Cloud save</h2><div class="radio" style="border-color:#5ef0ff"><b style="color:#5ef0ff">STATUS</b><span id="syncSt">${syncStatus()}</span></div>
+    <div class="btns"><button class="btn" data-act="syncNowBtn">☁ Sync now</button>
+    ${SC.paused?'<button class="btn alt" data-act="syncResume">▶ Resume sync</button>':'<button class="btn alt" data-act="syncPause">⏸ Pause sync on this device</button>'}
+    ${SY.undo?'<button class="btn alt" data-act="syncUndo">↶ Undo last sync</button>':''}<button class="btn alt" data-act="syncOff">Disconnect</button><button class="btn alt" data-act="menu">Back</button></div>
+    <div class="help">This device: ${SC.name}. Syncing happens by itself when you open the game, every few minutes, and when you leave.</div>`)}
+const SYNC_ACT={
+  syncAns:D=>{if(SY.ans)SY.ans(D.v)},
+  syncConnect:()=>{const t=(document.getElementById('syncTok').value||'').trim(),n=(document.getElementById('syncName').value||'').trim()||devGuess();if(!t)return toast('Paste your GitHub key first');
+    Object.assign(SC,{token:t,name:n,base:null,baseDev:null,baseSig:null,paused:false,gist:null});scSave();SY.liveOk=false;SY.hold=false;showCloud();syncNow(true)},
+  syncNowBtn:()=>{SY.liveOk=false;syncNow(true)},
+  syncPause:()=>{SC.paused=true;scSave();showCloud();toast('Cloud sync paused on this device')},
+  syncResume:()=>{SC.paused=false;SC.base=null;scSave();SY.hold=false;showCloud();syncNow(true)},     // after a pause we can't know which game is right: ask
+  syncUndo:()=>{const r=store.get(PRESYNC);if(!r||!r.raw)return toast('Nothing to undo');try{localStorage.setItem(SAVE,r.raw)}catch(e){}loadGame(JSON.parse(r.raw));store.del(PRESYNC);SY.undo=false;
+    SC.paused=true;scSave();showCloud();toast('Restored the game from before the last sync. Sync is paused here; Resume asks which game to keep')},
+  syncOff:()=>{SC={dev:SC.dev};scSave();SY.st='';SY.hold=false;showCloud();toast('Disconnected from the cloud save (the Gist stays on GitHub)')}};
+/* import: all devices or only here */
+async function syncImportAsk(){if(!SC.token||SC.paused)return;
+  const v=await syncAsk(`<h2>☁ Use this save everywhere?</h2><p>You loaded a save. Should it replace the cloud game, so your other devices get it too? (The current cloud game is kept as a backup.)</p>
+    <div class="btns"><button class="btn" data-act="syncAns" data-v="all">All devices</button><button class="btn alt" data-act="syncAns" data-v="here">Only this device (pause sync here)</button></div>`,true);
+  if(v==='all'){try{SY.busy=true;const c=await cloudGet();await cloudPut(c,true);toast('☁ This save is now the cloud game')}catch(e){toast('⚠ Cloud upload failed: '+e.message)}finally{SY.busy=false}}
+  else{SC.paused=true;scSave();toast('Sync paused on this device')}}
+/* automatic: on start, when coming back to the app, every 3 minutes, when going online, soon after each save; on leaving */
+let syncSoonT=0,SYNC_SOON_MS=4000;function syncSoon(){if(!SC.token||SC.paused)return;clearTimeout(syncSoonT);syncSoonT=setTimeout(()=>syncNow(false),SYNC_SOON_MS)}
+function syncBoot(){if(SC.token)setTimeout(()=>syncNow(false),1200)}
+setInterval(()=>{if(SC.token&&!document.hidden&&navigator.onLine!==false)syncNow(false)},180000);
+document.addEventListener('visibilitychange',()=>{if(!SC.token)return;if(document.hidden)syncLeave();else{SY.liveOk=false;SY.hold=false;syncNow(false)}});
+addEventListener('pagehide',()=>{if(SC.token)syncLeave()});
+addEventListener('online',()=>{if(SC.token)syncNow(false)});
+
 // ================= PWA =================
 // Drop the offline cache and service worker, then load the page fresh from the server (your save is kept).
 async function reloadLatest(btn){if(btn){btn.disabled=true;btn.textContent='Loading latest version…'}
@@ -1481,7 +1635,7 @@ async function reloadLatest(btn){if(btn){btn.disabled=true;btn.textContent='Load
 let installEvt=null;
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(state==='title')showTitle()});
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})});
-resize();setMuteUI();setVibeUI();resetProgress();showTitle();requestAnimationFrame(frame);
+resize();setMuteUI();setVibeUI();resetProgress();showTitle();requestAnimationFrame(frame);syncBoot();
 </script>
 </body>
 </html>

@@ -27,10 +27,14 @@ in the browser and on his phone, so keep changes playable and explain them in pl
 - **update:** `updateShip()` + `fireWeapon()`, `update()`, `updateMission()`, `updateEnemies()`
 - **render:** `render()`, `drawShipBody()`, `drawEnemy()`, `drawHUD()`
 - **overlays:** `showTitle/Brief/Shop/Fail/Transfer()`, `endLevel()`, `gameOver()`
+- **cloud save sync:** section `// === cloud save sync` (same design as Frontier Works `js/sync.js`; rules in its header comment).
+  Private Gist found by description `Ore Rush save (managed by the game, do not edit)`, files `orerush-save.txt|meta.json|live.json|backup.txt`.
+  Device state in `localStorage['orerush_sync']` (token, name, gist id, base ver/dev/fingerprint); pre-sync local copy in `orerush_presync`.
+  Loads and questions only happen in menus (`canAsk()`), never mid-sector.
 
 ## Save data
-- `localStorage['orerush2_save']` holds `{v:2, level, credits, score, lives, upg, wl, weapon, shipId, ownedShips, bombs, hull, stars, oc, deeds}`.
-  `oc` = overclock levels (system ids, and `w_<weapon>` for weapons); `deeds` = sector numbers bought in the Belt tab.
+- `localStorage['orerush2_save']` holds `{v:2, level, credits, score, lives, upg, wl, weapon, shipId, ownedShips, bombs, hull, stars, oc, deeds, playT}`.
+  `playT` = seconds spent flying sectors. `oc` = overclock levels (system ids, and `w_<weapon>` for weapons); `deeds` = sector numbers bought in the Belt tab.
   `orerush_best` holds the best score, `orerush_sound` the sound mode (0 all, 1 effects only, 2 off; `orerush_muted` is the old flag), `orerush_vibe` vibration strength (0 off, 1 normal, 2 strong; old saves stored true/false). `orerush_save` is the old v1 format, migrated on load.
 - Save codes are `ORS2:` + base64(JSON). If you change the save shape, keep `loadGame()` tolerant of old saves (defaults for missing keys)
   so players don't lose progress.
@@ -51,5 +55,6 @@ in the browser and on his phone, so keep changes playable and explain them in pl
   If the merge has conflicts or tests fail, stop and tell the owner instead of forcing it.
 
 ## Testing
-No test suite. Serve with `python3 -m http.server` and play, or drive it headlessly with Playwright.
+`node tests/sync-test.js` runs the cloud sync test (fake GitHub API, two simulated devices); it must pass before pushing sync changes.
+Otherwise no test suite. Serve with `python3 -m http.server` and play, or drive it headlessly with Playwright.
 Handy console cheats: `credits=50000;showShop()`, `level=15;startLevel()`, `asteroids.forEach(a=>breakAsteroid(a))`.
