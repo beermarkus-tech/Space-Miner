@@ -129,7 +129,7 @@
 // Build number, shown in the main menu. Bump it together with VERSION in sw.js on every push.
 // DEV = the test version on the frontier branch (published at /dev/). It keeps its own saves and settings (keys start with dev_),
 // its own cloud Gist and app icon. When frontier becomes the real game: set DEV=false, restore manifest/icons/sw names, continue BUILD from main.
-const DEV=true,BUILD=4;
+const DEV=true,BUILD=5;
 const KP=DEV?'dev_':'';   // prefix for every localStorage key
 // ================= helpers =================
 const TAU=Math.PI*2;
@@ -309,7 +309,7 @@ const sfx={
   snipe(){tone(1400,.18,'sawtooth',.08,200);noise(.12,.12,5000)},
   steal(){tone(900,.25,'triangle',.06,300)},
   jump(){tone(200,1.2,'sine',.14,1600);noise(1,.15,6000)},
-  hyper(){tone(55,3.3,'sawtooth',.05,140);tone(110,3.3,'sine',.1,330);tone(220,2.6,'triangle',.03,900,.6);noise(3.2,.09,900);tone(1800,.5,'sine',.06,300,3.0);noise(.6,.25,7000,3.0)}
+  hyper(){tone(55,4.9,'sawtooth',.05,140);tone(110,4.9,'sine',.1,330);tone(220,4,'triangle',.03,900,.6);noise(4.8,.09,900);tone(1800,.5,'sine',.06,300,4.6);noise(.6,.25,7000,4.6)}
 };
 // phone vibration (Android browsers; iPhones don't support it). The 📳 button cycles normal → strong → off, saved in orerush_vibe (1/2/0).
 // Tablets default to strong: their motors are weak, so short buzzes can't be felt.
@@ -857,9 +857,9 @@ function travel(dest){const r=routeTo(dest);if(!r||!r.length)return;if(fr.fuel<r
 function nextHop(){if(!fr.route||!fr.route.length){fr.route=null;return showSystem()}const id=fr.route[0];
   if(fr.fuel<1){fr.route=null;toast('Out of fuel. Journey stopped.');return showSystem()}
   state='warp';hideOv();warp={t:0,id,from:fr.sys,stars:Array.from({length:170},()=>({x:rand(-1,1),y:rand(-1,1),z:rand(.05,1)}))};sfx.hyper();buzz(30,'warp',500)}
-// hyperjump: ~3.4 s. Spool-up (stars stretch), then a swirling tunnel of light rings that shifts from the old sun's colour
+// hyperjump: WARP_T (5 s). Spool-up (stars stretch), then a swirling tunnel of light rings that shifts from the old sun's colour
 // to the destination's, with a gentle sway, then a white flash on arrival.
-const WARP_T=3.4;
+const WARP_T=5;
 function updateWarp(dt){warp.t+=dt;const sp=.25+Math.min(1,warp.t/.9)*2.4-(warp.t>WARP_T-.5?(warp.t-(WARP_T-.5))*2:0);
   for(const s of warp.stars){s.z-=dt*sp;if(s.z<=.02){s.x=rand(-1,1);s.y=rand(-1,1);s.z=1}}
   if(warp.t>WARP_T){const id=warp.id;warp=null;fr.route.shift();if(!fr.route.length)fr.route=null;arriveAt(id)}}
@@ -1185,7 +1185,6 @@ function updateShip(dt){
   if(moveStick){const dx=moveStick.x-moveStick.ox,dy=moveStick.y-moveStick.oy,l=Math.hypot(dx,dy);if(l>6){const m=Math.min(1,l/60);ax+=dx/l*m;ay+=dy/l*m;thr=true;if(!aimStick)aimA=Math.atan2(dy,dx)}}
   if(aimStick){const dx=aimStick.x-aimStick.ox,dy=aimStick.y-aimStick.oy;if(Math.hypot(dx,dy)>8)aimA=Math.atan2(dy,dx);firing=true}
   if(mouse.down){aimA=Math.atan2(mouse.y-SH/2-(ship.y-cam.y)*ZOOM,mouse.x-SW/2-(ship.x-cam.x)*ZOOM);firing=true}
-  if(clearT>=0)firing=false;
   if(aimA!==null)ship.a+=clamp(angDiff(ship.a,aimA),-11*dt,11*dt);
   ship.thrusting=thr;ship.vx+=ax*S.thrust*chillMul*dt;ship.vy+=ay*S.thrust*chillMul*dt;
   for(const h of holes){const dx=h.x-ship.x,dy=h.y-ship.y,d=Math.hypot(dx,dy);if(d<h.range){const f=420*Math.pow(1-d/h.range,1.6)+40;ship.vx+=dx/d*f*dt;ship.vy+=dy/d*f*dt;
@@ -1207,7 +1206,7 @@ function updateShip(dt){
   const wn=S.wing>=3?2:S.wing>=1?1:0;
   for(let i=0;i<wn;i++){const w=ship.wings[i],a=levelTime*1.7+i*Math.PI,tx=ship.x+Math.cos(a)*44,ty=ship.y+Math.sin(a)*44;
     if(w.x===0&&w.y===0){w.x=tx;w.y=ty}w.x+=(tx-w.x)*Math.min(1,8*dt);w.y+=(ty-w.y)*Math.min(1,8*dt);w.fireT-=dt;
-    if(w.fireT<=0&&clearT<0){const t=nearest(w.x,w.y,430);if(t){w.fireT=(S.wing>=2?.42:.6);const aa=Math.atan2(t.y-w.y,t.x-w.x);
+    if(w.fireT<=0){const t=nearest(w.x,w.y,430);if(t){w.fireT=(S.wing>=2?.42:.6);const aa=Math.atan2(t.y-w.y,t.x-w.x);
       bullets.push({x:w.x,y:w.y,vx:Math.cos(aa)*820,vy:Math.sin(aa)*820,life:.6,dmg:(S.wing>=2?1.4:.9)*S.dmgMul*(ship.pu.over>0?2:1)*(1+level*.02)*S.wingMul,col:'#9ff6ff',k:'bolt'});sfx.wing()}else w.fireT=.3}
     for(const o of ores){if(!o.dead&&(o.x-w.x)**2+(o.y-w.y)**2<24*24){o.dead=true;collectOre(o)}}}
 }
@@ -1271,7 +1270,7 @@ function update(dt){
     if(rig&&!rig.dead&&(b.x-rig.x)**2+(b.y-rig.y)**2<rig.r*rig.r){b.dead=true;hurtRig(b.dmg*.7);sparks(b.x,b.y,5,'#ffe0a0',100)}}
   bullets=bullets.filter(b=>!b.dead);ebullets=ebullets.filter(b=>!b.dead);missiles=missiles.filter(m=>!m.dead);
   // ore & power-ups
-  const vac=false,mr=magnetR(),room=mission==='quota'||holdRoom()>=1;
+  const vac=false,mr=magnetR(),room=(mission==='quota'&&clearT<0)||holdRoom()>=1;
   if(!room&&playing&&ship&&!ship.dead&&ores.some(o=>Math.hypot(o.x-ship.x,o.y-ship.y)<mr)&&!thr('hold',2500))banner={txt:'HOLD FULL · SELL AT A STATION',col:'#ff9a3c',t:0};
   for(const o of ores){if(o.dead)continue;o.t+=dt;o.a+=o.va*dt;o.vx*=1-1.2*dt;o.vy*=1-1.2*dt;
     for(const h of holes){const dx=h.x-o.x,dy=h.y-o.y,d=Math.hypot(dx,dy);if(d<h.range){const f=300*Math.pow(1-d/h.range,1.4);o.vx+=dx/d*f*dt;o.vy+=dy/d*f*dt;if(d<h.core)o.dead=true}}
@@ -1298,7 +1297,7 @@ function plasmaBurst(b){explode(b.x,b.y,b.rad*.45,'#9dff5a');addPart({k:'ring',x
 
 function collectOre(o){const T=TYPES[o.type];let mult=1;
   if(ship){ship.combo=ship.comboT>0?ship.combo+1:1;ship.comboT=1.6;mult=1+Math.min(2,Math.floor(ship.combo/8)*.25);if(ship.pu.double>0)mult*=2;if(storm&&storm.out)mult*=2}
-  const v=Math.round(T.val*S.refine*mult),cash=mission==='quota';
+  const v=Math.round(T.val*S.refine*mult),cash=mission==='quota'&&clearT<0;   // after a filled rush order, ore goes into the hold again
   if(!cash)fr.cargo[o.type]=(fr.cargo[o.type]||0)+Math.min(mult,Math.max(0,holdRoom()));   // rush order: the ore goes straight to the client
   fieldOre++;if(levelStats){levelStats.earned+=v;levelStats.ore[o.type]++;levelStats.oreVal[o.type]+=v}if(mission==='quota'&&state==='play')quotaGot+=v;
   floatText(o.x,o.y,cash?'+'+v:'+'+T.name,T.ore,cash?15:12);sfx.pick();addPart({k:'flash',x:o.x,y:o.y,vx:0,vy:0,life:.2,max:.2,size:22,color:T.ore})}
