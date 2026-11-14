@@ -95,6 +95,9 @@
   .loc>div{flex:1;font-size:14px}.loc small{display:block;font-size:12px;color:#93a8c6;margin-top:2px}.loc b{color:#e9f6ff}
   .loc .btn{padding:10px 14px;font-size:13px;flex:none}.loc.next{border-color:rgba(255,200,69,.6);background:rgba(255,200,69,.07)}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}.chip{font-family:Orbitron;font-size:11px;padding:6px 9px;border-radius:9px;border:1px solid var(--line);background:rgba(94,240,255,.05);color:#cfefff;cursor:pointer}
+  canvas.gmap{position:relative;inset:auto;width:100%;display:block;border-radius:12px;border:1px solid rgba(94,240,255,.18);touch-action:none;margin:6px 0 0;background:#04060d}
+  .ginfo{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px;background:rgba(94,240,255,.04)}.ginfo b{font-size:15px}.ginfo small{display:block;color:#93a8c6;font-size:12.5px;margin-top:3px}
+  .ginfo .btn{margin-top:8px;width:100%}.ginfo-route{margin-top:6px;font-family:Orbitron;font-size:12px;color:#ffc845}.tag{font-family:Orbitron;font-size:9px;color:#5ef0ff;letter-spacing:.1em}
   svg.sysmap{width:100%;height:auto;display:block;margin:6px 0 4px;border:1px solid rgba(255,255,255,.06);border-radius:12px;background:radial-gradient(ellipse at center,rgba(40,60,110,.25),rgba(0,0,0,.2));font-family:'Exo 2',sans-serif}
   #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);max-width:min(92vw,520px);background:rgba(8,12,26,.94);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;color:#dfe9ff;z-index:30;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center}
   #toast.show{opacity:1}
@@ -125,7 +128,7 @@
 // Build number, shown in the main menu. Bump it together with VERSION in sw.js on every push.
 // DEV = the test version on the frontier branch (published at /dev/). It keeps its own saves and settings (keys start with dev_),
 // its own cloud Gist and app icon. When frontier becomes the real game: set DEV=false, restore manifest/icons/sw names, continue BUILD from main.
-const DEV=true,BUILD=1;
+const DEV=true,BUILD=2;
 const KP=DEV?'dev_':'';   // prefix for every localStorage key
 // ================= helpers =================
 const TAU=Math.PI*2;
@@ -201,16 +204,16 @@ function asteroidSprite(r,P,dense){
   return {c,size:(r+pad)*2,off:r+pad}
 }
 
-function makeNebula(hue,dim){const T=1024,c=document.createElement('canvas');c.width=c.height=T;const g=c.getContext('2d');
+function makeNebula(hue,dim,hue2,dens){dens=dens||1;const T=1024,c=document.createElement('canvas');c.width=c.height=T;const g=c.getContext('2d');
   g.fillStyle='#04050c';g.fillRect(0,0,T,T);g.globalCompositeOperation='lighter';
-  for(let i=0;i<34;i++){const x=Math.random()*T,y=Math.random()*T,r=rand(90,340),h=hue+rand(-45,45),col=`hsla(${h},75%,45%,`;
+  for(let i=0;i<Math.round(34*dens);i++){const x=Math.random()*T,y=Math.random()*T,r=rand(90,340),h=(hue2!=null&&Math.random()<.45?hue2:hue)+rand(-25,25),col=`hsla(${h},75%,45%,`;
     for(const ox of[-T,0,T])for(const oy of[-T,0,T]){if(x+ox+r<0||x+ox-r>T||y+oy+r<0||y+oy-r>T)continue;const gr=g.createRadialGradient(x+ox,y+oy,0,x+ox,y+oy,r);
       gr.addColorStop(0,col+(.11*dim)+')');gr.addColorStop(1,col+'0)');g.fillStyle=gr;g.fillRect(x+ox-r,y+oy-r,2*r,2*r)}}
   g.globalCompositeOperation='source-over';
   for(let i=0;i<600;i++){g.fillStyle=`rgba(255,255,255,${rand(.08,.45)})`;g.fillRect(Math.random()*T,Math.random()*T,1,1)}
   return c}
 
-function makePlanet(hue){const S=560,c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');const R=200,cx=S/2,cy=S/2;
+function makePlanet(hue,ring){const S=560,c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');const R=200,cx=S/2,cy=S/2;
   const ag=g.createRadialGradient(cx,cy,R*.92,cx,cy,R*1.35);ag.addColorStop(0,`hsla(${hue},85%,62%,.32)`);ag.addColorStop(1,`hsla(${hue},85%,62%,0)`);g.fillStyle=ag;g.fillRect(0,0,S,S);
   g.save();g.beginPath();g.arc(cx,cy,R,0,TAU);g.clip();
   const bg=g.createRadialGradient(cx-R*.4,cy-R*.4,R*.1,cx,cy,R*1.1);bg.addColorStop(0,`hsl(${hue},45%,58%)`);bg.addColorStop(1,`hsl(${hue+25},50%,16%)`);g.fillStyle=bg;g.fillRect(0,0,S,S);
@@ -220,9 +223,15 @@ function makePlanet(hue){const S=560,c=document.createElement('canvas');c.width=
   const sg=g.createRadialGradient(cx-R*.55,cy-R*.55,R*.25,cx-R*.25,cy-R*.25,R*1.55);sg.addColorStop(0,'rgba(0,0,0,0)');sg.addColorStop(.55,'rgba(0,0,0,.35)');sg.addColorStop(1,'rgba(0,0,0,.94)');
   g.fillStyle=sg;g.fillRect(0,0,S,S);g.restore();
   g.strokeStyle=`hsla(${hue},95%,78%,.4)`;g.lineWidth=2.5;g.beginPath();g.arc(cx,cy,R-1,Math.PI*.95,Math.PI*1.62);g.stroke();
-  if(Math.random()<.5){g.save();g.translate(cx,cy);g.rotate(-.35);g.scale(1,.22);g.strokeStyle=`hsla(${hue+40},60%,75%,.35)`;g.lineWidth=14;g.beginPath();g.arc(0,0,R*1.35,Math.PI*1.02,Math.PI*1.98);g.stroke();g.restore()}
+  if(ring==null?Math.random()<.5:ring){g.save();g.translate(cx,cy);g.rotate(-.35);g.scale(1,.22);g.strokeStyle=`hsla(${hue+40},60%,75%,.35)`;g.lineWidth=14;g.beginPath();g.arc(0,0,R*1.35,Math.PI*1.02,Math.PI*1.98);g.stroke();g.restore()}
   return c}
 
+// suns in the background of a mission: a glowing disc with a halo and a lens streak, in the system's sun colour
+const sunSprites={};
+function sunSprite(col){if(sunSprites[col])return sunSprites[col];const s=256,c=document.createElement('canvas');c.width=c.height=s;const g=c.getContext('2d'),m=128,gr=g.createRadialGradient(m,m,0,m,m,m);
+  gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.1,'rgba(255,255,255,.95)');gr.addColorStop(.16,hexA(col,.85));gr.addColorStop(.35,hexA(col,.28));gr.addColorStop(1,hexA(col,0));
+  g.fillStyle=gr;g.fillRect(0,0,s,s);return sunSprites[col]=c}
+let suns=[],planetScale=.5,siteNow='belt';
 let holeSprite=null;
 function makeHoleSprite(){const s=256,c=document.createElement('canvas');c.width=c.height=s;const g=c.getContext('2d'),m=128;
   const gr=g.createRadialGradient(m,m,0,m,m,128);gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(.2,'rgba(0,0,0,1)');gr.addColorStop(.24,'rgba(255,225,170,.95)');
@@ -548,28 +557,59 @@ function loadGame(sv){resetProgress();level=sv.level;credits=sv.credits;score=sv
    A jump costs 1 fuel and moves time forward 1 day; a jump can end in a pirate ambush or a derelict find.
    Flights: cur = {kind:'story'|'side'|'ambush', n (difficulty), mission, name, boss?}. While flying, `level` holds the flight's difficulty and
    homeLevel the campaign progress (saveGame always stores the progress). */
+// The hand-made galaxy. Map units: x 0..90, y 0..64 (y grows downward). Story systems (story:true, r = 0..3) carry the campaign;
+// side systems open at sector `unlock` and have their own market personality. look = sun type, nebula hues + density, planet.
+// Past the Frozen Halo, systems are generated (fr.gen) further east, without end.
+const SUN={yellow:{c:'#fff1c0',g:'#ffcf5a',s:1},orange:{c:'#ffd2a0',g:'#ff9a3c',s:1.1},red:{c:'#ffc0a0',g:'#ff5a32',s:1.9},white:{c:'#ffffff',g:'#cfe6ff',s:.55},
+  blue:{c:'#eef9ff',g:'#5ab4ff',s:1.3},redDwarf:{c:'#ffc4b0',g:'#ff4a3a',s:.7}};
 const HOME_SYS=[
-  {id:'kessler',name:'Kessler Belt',station:'Kessler Station',x:0,y:0,r:0,links:['crimson'],hue:210,
-    mul:{rock:.9,iron:.8,gold:.85,ice:1.1,crystal:1.3,plasma:1.5,void:1.6,cryo:1.7}},
-  {id:'crimson',name:'Crimson Expanse',station:'Redhold Market',x:1.15,y:.5,r:1,links:['kessler','voidrim'],hue:8,
-    mul:{rock:1,iron:1.25,gold:1.4,ice:1.5,crystal:1.2,plasma:.7,void:1.3,cryo:1.5}},
-  {id:'voidrim',name:'Void Rim',station:'Last Light Exchange',x:2.2,y:-.1,r:2,links:['crimson','frozen'],hue:270,
-    mul:{rock:1.05,iron:1.4,gold:1.3,ice:1.6,crystal:.85,plasma:1.2,void:.7,cryo:1.4}},
-  {id:'frozen',name:'Frozen Halo',station:'Icebox Depot',x:3.2,y:.45,r:3,links:['voidrim'],hue:192,
-    mul:{rock:1.3,iron:1.5,gold:1.4,ice:.6,crystal:1.2,plasma:1.5,void:1.3,cryo:.7}}];
+  {id:'kessler',name:'Kessler Belt',station:'Kessler Station',kind:'Mining hub',icon:'⛏',story:true,r:0,x:14,y:32,links:['crimson','brightwater','dustmoor','tinkers'],
+    look:{sun:'yellow',neb:[205,185],dens:.9,planet:30,ring:false},mul:{rock:.9,iron:.8,gold:.85,ice:1.1,crystal:1.3,plasma:1.5,void:1.6,cryo:1.7}},
+  {id:'crimson',name:'Crimson Expanse',station:'Redhold Market',kind:'Frontier market',icon:'◆',story:true,r:1,x:32,y:40,links:['kessler','voidrim','tinkers','hammerfall','gilded'],
+    look:{sun:'red',neb:[5,330],dens:1.2,planet:200,ring:true},mul:{rock:1,iron:1.25,gold:1.4,ice:1.5,crystal:1.2,plasma:.7,void:1.3,cryo:1.5}},
+  {id:'voidrim',name:'Void Rim',station:'Last Light Exchange',kind:'Deep-space exchange',icon:'◆',story:true,r:2,x:54,y:30,links:['crimson','frozen','mirewell','scrappers','lantern'],
+    look:{sun:'white',neb:[270,300],dens:.6,planet:160,ring:false},mul:{rock:1.05,iron:1.4,gold:1.3,ice:1.6,crystal:.85,plasma:1.2,void:.7,cryo:1.4}},
+  {id:'frozen',name:'Frozen Halo',station:'Icebox Depot',kind:'Ice depot',icon:'❄',story:true,r:3,x:72,y:34,links:['voidrim','hush','cinder'],
+    look:{sun:'blue',neb:[190,210],dens:.8,planet:210,ring:true},mul:{rock:1.3,iron:1.5,gold:1.4,ice:.6,crystal:1.2,plasma:1.5,void:1.3,cryo:.7}},
+  {id:'brightwater',name:'Brightwater',station:'Brightwater Refinery',kind:'Water refinery',icon:'≈',r:0,unlock:3,x:6,y:17,links:['kessler','tinkers'],
+    look:{sun:'yellow',neb:[170,200],dens:.7,planet:190,ring:false},mul:{rock:1.1,iron:1.3,gold:1.2,ice:.65,crystal:1.4,plasma:1.4,void:1.5,cryo:1.1}},
+  {id:'dustmoor',name:'Dustmoor',station:'Dustmoor Co-op',kind:'Farming colony',icon:'❀',r:0,unlock:4,x:7,y:49,links:['kessler','hammerfall'],
+    look:{sun:'orange',neb:[100,140],dens:.8,planet:90,ring:false},mul:{rock:1.3,iron:1.6,gold:1.5,ice:1.3,crystal:.9,plasma:1.1,void:1.2,cryo:1.3}},
+  {id:'tinkers',name:'Tinker’s Rest',station:'Tinker’s Scrapyard',kind:'Scrap and repairs',icon:'⚙',r:0,unlock:6,x:25,y:14,links:['kessler','brightwater','crimson','scrappers'],
+    look:{sun:'yellow',neb:[35,20],dens:1,planet:25,ring:true},mul:{rock:1.9,iron:1.2,gold:1,ice:1,crystal:1.1,plasma:1.2,void:1.3,cryo:1.3}},
+  {id:'hammerfall',name:'Hammerfall',station:'Hammerfall Navy Yard',kind:'Navy shipyard',icon:'⚓',r:1,unlock:11,x:21,y:57,links:['dustmoor','crimson','gilded'],
+    look:{sun:'white',neb:[215,230],dens:.7,planet:220,ring:false},mul:{rock:1,iron:1.5,gold:1.2,ice:1.1,crystal:1.6,plasma:1.3,void:1.2,cryo:1.4}},
+  {id:'gilded',name:'Gilded Cradle',station:'The Golden Exchange',kind:'Rich capital',icon:'✦',r:1,unlock:14,x:43,y:56,links:['crimson','hammerfall','mirewell'],
+    look:{sun:'yellow',sun2:'orange',neb:[45,320],dens:1,planet:300,ring:true},mul:{rock:.5,iron:.7,gold:1.3,ice:1.2,crystal:1.4,plasma:1.6,void:1.7,cryo:1.8}},
+  {id:'scrappers',name:'Scrapper’s Den',station:'The Den (no questions asked)',kind:'Pirate haven',icon:'☠',r:1,unlock:16,x:42,y:15,links:['tinkers','voidrim','lantern'],danger:3,
+    look:{sun:'redDwarf',neb:[350,120],dens:1.3,planet:0,ring:false},mul:{rock:.8,iron:1.15,gold:1.25,ice:1.2,crystal:1.25,plasma:1.25,void:1.3,cryo:1.3}},
+  {id:'mirewell',name:'Mirewell',station:'Mirewell Gas Works',kind:'Gas giant colony',icon:'◍',r:2,unlock:21,x:61,y:50,links:['voidrim','gilded','cinder'],
+    look:{sun:'orange',neb:[80,50],dens:.9,planet:60,ring:true,giant:true},mul:{rock:1.2,iron:1.4,gold:1.1,ice:1.7,crystal:1.2,plasma:.6,void:1.2,cryo:1.5}},
+  {id:'lantern',name:'Lantern Deep',station:'Lantern Research Station',kind:'Research station',icon:'⚗',r:2,unlock:23,x:61,y:10,links:['voidrim','scrappers','hush'],
+    look:{sun:'blue',neb:[240,280],dens:.9,planet:250,ring:false},mul:{rock:1,iron:.7,gold:1,ice:1.2,crystal:1.5,plasma:1.3,void:2,cryo:1.9}},
+  {id:'cinder',name:'Cinder Gate',station:'Cinder Forge',kind:'Forge world',icon:'♨',r:3,unlock:31,x:80,y:54,links:['frozen','mirewell'],
+    look:{sun:'red',neb:[20,0],dens:1.4,planet:15,ring:false},mul:{rock:1.2,iron:.6,gold:.9,ice:1.8,crystal:1.3,plasma:1.2,void:1.4,cryo:1.9}},
+  {id:'hush',name:'Hush',station:'The Quiet Abbey',kind:'Silent monastery',icon:'◎',r:3,unlock:33,x:79,y:13,links:['frozen','lantern'],
+    look:{sun:'white',sun2:'blue',neb:[260,200],dens:.5,planet:270,ring:true},mul:{rock:1.1,iron:1.2,gold:1.3,ice:1.1,crystal:2,plasma:.8,void:1.4,cryo:1.2}}];
 const HOME=Object.fromEntries(HOME_SYS.map(s=>[s.id,s]));
+const STORY_SYS=HOME_SYS.filter(s=>s.story);
+const GSCALE=15;   // typical distance between neighbouring systems on the map
+
 const FUEL_MAX=6;
 const MISSION_NAME={clear:'Asteroid field',quota:'Rush order',defend:'Rig defense',escort:'Convoy escort',storm:'Ion storm',lode:'Mother Lode',boss:'Pirate stronghold',ambush:'Pirate ambush'};
 const PLACES=['the Junkyard','Pebble Run','Old Tom’s Patch','the Gravel Pit','Rubble Row','the Snowglobe','Dustbin Drift','the Teeth','Grandma’s Attic','the Washing Machine',
   'Bob’s Mistake','the Shiny Bit','Crumb Alley','the Quiet Spot','Last Chance Rocks','the Pinball'];
 const GEN_A=['Grubb’s','Nova','Wobble','Kaboom','Quiet','Old Man’s','Velvet','Rusty','Sputnik’s','Tin Can','Echo','Lucky','Hollow','Saffron','Gloom','Mumble'];
 const GEN_B=[' Reach',' Drift',' Hollow',' Expanse',' Nine',' Rest',' Gap',' Verge',' Shoals',' Belt',' Deep',' Cradle'];
+const GEN_KIND=[['Frontier outpost','✧'],['Mining camp','⛏'],['Trading post','◆'],['Smuggler nest','☠'],['Ice station','❄'],['Relay station','⌁'],['Hermit\u2019s rock','◎']];
 const GEN_ST=['Outpost','Trading Post','Depot','Exchange','Market','Station','Bazaar','Hub'];
 
 function frNew(){return{sys:'kessler',day:1,fuel:FUEL_MAX,cargo:{},known:{},sat:{},gen:{},links:{},done:{},visited:['kessler'],seed:Math.floor(Math.random()*1e9),news:0}}
 // an existing save (no galaxy yet): put the pilot in the system of their current campaign progress
-function frFromProgress(lv){const f=frNew(),r=Math.min(3,regionOf(Math.min(lv,LAST_SECTOR)));f.sys=HOME_SYS[r].id;f.visited=HOME_SYS.slice(0,r+1).map(s=>s.id);return f}
-function frFix(f){const d=frNew();f=Object.assign(d,f||{});for(const k of ['cargo','known','sat','gen','links','done'])if(!f[k]||typeof f[k]!=='object')f[k]={};if(!Array.isArray(f.visited))f.visited=[f.sys];return f}
+function frFromProgress(lv){const f=frNew(),r=Math.min(3,regionOf(Math.min(lv,LAST_SECTOR)));f.sys=STORY_SYS[r].id;f.visited=STORY_SYS.slice(0,r+1).map(s=>s.id);return f}
+function frFix(f){const d=frNew();f=Object.assign(d,f||{});for(const k of ['cargo','known','sat','gen','links','done'])if(!f[k]||typeof f[k]!=='object')f[k]={};if(!Array.isArray(f.visited))f.visited=[f.sys];
+  if(Object.values(f.gen).some(g=>g.x<20||!g.look)){f.gen={};f.links={};f.done={};if(!HOME[f.sys])f.sys='frozen';f.visited=f.visited.filter(id=>HOME[id])}  // DEV build 1 map scale
+  if(!Array.isArray(f.route))f.route=null;return f}
 
 // deterministic random numbers (same galaxy and prices for a given seed and day)
 function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
@@ -581,22 +621,24 @@ const sysLinks=id=>[...((HOME[id]&&HOME[id].links)||(fr.gen[id]&&fr.gen[id].link
 const frontierOpen=()=>homeProgress()>LAST_SECTOR;
 const homeProgress=()=>inFlight?homeLevel:level;
 // can the gate into this system be used yet?
-function sysUnlocked(id){const s=getSys(id);if(!s)return false;if(HOME[id])return homeProgress()>s.r*10;return frontierOpen()}
-function lockText(id){const s=getSys(id);return HOME[id]?`Gate opens after sector ${s.r*10}`:`Gate opens after sector ${LAST_SECTOR}`}
+function sysUnlocked(id){const s=getSys(id);if(!s)return false;if(HOME[id])return s.story?homeProgress()>s.r*10:homeProgress()>=s.unlock;return frontierOpen()}
+function lockText(id){const s=getSys(id);return HOME[id]?(s.story?`Gate opens after sector ${s.r*10}`:`Gate opens when you reach sector ${s.unlock}`):`Gate opens after sector ${LAST_SECTOR}`}
 // difficulty of a system's side jobs
-function sysN(id){const s=getSys(id);if(HOME[id])return clamp(homeProgress()-1,s.r*10+1,s.r*10+10);return LAST_SECTOR+s.depth*4}
+function sysN(id){const s=getSys(id);if(HOME[id])return clamp(homeProgress()-1,s.r*10+1,s.r*10+10)+(s.danger||0);return LAST_SECTOR+s.depth*4}
 
 // generated systems: created next to the Frozen Halo and next to every generated system you visit
 function genNeighbors(id){if(!frontierOpen()||fr.done[id])return;const s=getSys(id);if(!s||(HOME[id]&&id!=='frozen'))return;
-  const R=srand(hashStr(fr.seed+'gen'+id)),k=HOME[id]?2:1+Math.floor(R()*2.2),all=()=>[...HOME_SYS,...Object.values(fr.gen)];
-  for(let i=0;i<k;i++){let x,y,t=0;do{const a=-1.2+R()*2.4,d=1+R()*.6;x=s.x+Math.cos(a)*d;y=s.y+Math.sin(a)*d;t++}while(all().some(o=>Math.hypot(o.x-x,o.y-y)<.75)&&t<25);
+  const R=srand(hashStr(fr.seed+'gen'+id)),k=HOME[id]?3:1+Math.floor(R()*2.2),all=()=>[...HOME_SYS,...Object.values(fr.gen)];
+  for(let i=0;i<k;i++){let x,y,t=0;do{const a=-1.15+R()*2.3,d=(1+R()*.6)*GSCALE;x=s.x+Math.cos(a)*d;y=clamp(s.y+Math.sin(a)*d,-8,74);t++}while(all().some(o=>Math.hypot(o.x-x,o.y-y)<.75*GSCALE)&&t<25);
     const nid='g'+(Object.keys(fr.gen).length+1),depth=(s.depth||0)+1,produce=[pick(['iron','gold','ice','crystal']),pick(['plasma','void','cryo'])];
     const mul={};for(const k2 of TYPE_KEYS)mul[k2]=+(produce.includes(k2)?.55+R()*.25:.8+R()*.9).toFixed(2);
     const name=GEN_A[Math.floor(R()*GEN_A.length)]+GEN_B[Math.floor(R()*GEN_B.length)];
-    fr.gen[nid]={id:nid,name,station:name.split(' ')[0].replace(/[’']s$/,'')+' '+GEN_ST[Math.floor(R()*GEN_ST.length)],x,y,depth,hue:Math.floor(R()*360),mul,links:[id]};
+    const sunT=['yellow','orange','red','white','blue','redDwarf'][Math.floor(R()*6)],h1=Math.floor(R()*360),[kind,icon]=GEN_KIND[Math.floor(R()*GEN_KIND.length)];
+    fr.gen[nid]={id:nid,name,station:name.split(' ')[0].replace(/[’']s$/,'')+' '+GEN_ST[Math.floor(R()*GEN_ST.length)],kind,icon,x,y,depth,hue:h1,mul,links:[id],
+      look:{sun:sunT,sun2:R()<.15?'white':null,neb:[h1,(h1+40+Math.floor(R()*80))%360],dens:.5+R()*.9,planet:Math.floor(R()*360),ring:R()<.4,giant:R()<.15}};
     (fr.links[id]=fr.links[id]||[]).push(nid);
     // sometimes connect to another nearby system too, so routes can loop
-    for(const o of Object.values(fr.gen))if(o.id!==nid&&o.id!==id&&Math.hypot(o.x-x,o.y-y)<1.25&&R()<.5&&!sysLinks(nid).includes(o.id)){fr.gen[nid].links.push(o.id);(fr.links[o.id]=fr.links[o.id]||[]).push(nid);break}}
+    for(const o of Object.values(fr.gen))if(o.id!==nid&&o.id!==id&&Math.hypot(o.x-x,o.y-y)<1.25*GSCALE&&R()<.5&&!sysLinks(nid).includes(o.id)){fr.gen[nid].links.push(o.id);(fr.links[o.id]=fr.links[o.id]||[]).push(nid);break}}
   fr.done[id]=true}
 
 // ---- market ----
@@ -623,12 +665,13 @@ function sellAll(){let t=0;for(const k of Object.keys(fr.cargo))t+=sellOre(k,tru
 const fuelPrice=()=>20+homeProgress()*4;
 
 // ---- side jobs (change every day) ----
-function sideJobs(id){const n=sysN(id),R=srand(hashStr(fr.seed+'jobs'+id+fr.day)),k=HOME[id]?2:3,jobs=[];
-  const pool=['clear','clear',...(n>=4?['quota']:[]),...(n>=8?['defend']:[]),...(n>=9?['lode','lode']:[]),...(n>=13?['escort']:[]),...(n>=16?['storm']:[]),...(!HOME[id]?['boss']:[])];
+function sideJobs(id){const n=sysN(id),R=srand(hashStr(fr.seed+'jobs'+id+fr.day)),k=getSys(id).story?2:3,jobs=[];
+  const pool=['clear','clear',...(n>=4?['quota']:[]),...(n>=8?['defend']:[]),...(n>=9?['lode','lode']:[]),...(n>=13?['escort']:[]),...(n>=16?['storm']:[]),...(!HOME[id]||getSys(id).danger?['boss']:[])];
   for(let i=0;i<k;i++){const m=pool[Math.floor(R()*pool.length)],place=PLACES[Math.floor(R()*PLACES.length)];
-    jobs.push({kind:'side',id:id+'-'+fr.day+'-'+i,mission:m,n,name:`${MISSION_NAME[m]}: ${place}`,boss:m==='boss'?BOSSES[Math.floor(R()*BOSSES.length)]:null,hue:getSys(id).hue})}
+    jobs.push({kind:'side',id:id+'-'+fr.day+'-'+i,mission:m,n,name:`${MISSION_NAME[m]}: ${place}`,boss:m==='boss'?BOSSES[Math.floor(R()*BOSSES.length)]:null,site:SITES[Math.floor(R()*SITES.length)]})}
   return jobs}
-function storyLoc(n){return{kind:'story',n,mission:missionOf(n),name:'Sector '+n,boss:null}}
+const SITES=['belt','belt','sun','giant','nebula'],SITE_TXT={belt:'In the asteroid belt',sun:'Close to the sun: bright and hot',giant:'In orbit of a gas giant',nebula:'Deep inside a nebula: low visibility'};
+function storyLoc(n){return{kind:'story',n,mission:missionOf(n),name:'Sector '+n,boss:null,site:n%5===0?'sun':['belt','nebula','belt','giant','belt'][n%5]}}
 
 // ---- flights ----
 function startFlight(loc){cur=loc;if(!inFlight){homeLevel=level;inFlight=true}level=loc.n;startLevel()}
@@ -657,21 +700,6 @@ function drawArrows(){const L=30,Tp=Math.min(SW,SH)<500?150:120,Rr=SW-30,B=SH-92
     ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.fillStyle=col;ctx.globalAlpha=.85;ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-7,-8);ctx.lineTo(-3,0);ctx.lineTo(-7,8);ctx.closePath();ctx.fill();ctx.restore();
     if(label){ctx.font='700 9px Orbitron';ctx.textAlign='center';ctx.fillStyle=col;ctx.globalAlpha=.85;ctx.fillText(label,x-Math.cos(a)*22,y-Math.sin(a)*22+3);ctx.globalAlpha=1}}}
 
-// ---- jumps ----
-function jumpTo(id){if(!sysLinks(fr.sys).includes(id))return;if(!sysUnlocked(id))return toast(lockText(id));
-  if(fr.fuel<1)return toast('Out of fuel. Buy some at the station.');
-  fr.fuel--;fr.day++;for(const s of Object.values(fr.sat))for(const k in s){s[k]*=.7;if(s[k]<.5)delete s[k]}
-  fr.sys=id;if(!fr.visited.includes(id))fr.visited.push(id);genNeighbors(id);sfx.jump();saveGame();
-  const r=Math.random(),s=getSys(id),n=sysN(id);
-  if(r<.2&&homeProgress()>3){state='event';showOv(`<div class="kicker">ARRIVING · ${s.name.toUpperCase()}</div><h2 style="color:#ff7a5a">⚠ Pirate ambush!</h2>
-      <p>${pick(['A pirate gang was waiting at the gate. Their leader says: “Nice cargo. Hand it over.”','Pirates! They have a banner that says WELCOME. It is a trap.','Three pirate ships drop out of nowhere. One of them is painted pink, which is somehow worse.'])}</p>
-      <div class="btns"><button class="btn warn" data-act="ambushFight">Fight them</button>${cargoUsed()>0?`<button class="btn alt" data-act="ambushPay">Hand over 25% of your cargo</button>`:''}</div>`);return}
-  if(r<.32){const k=bestType(n),amt=Math.min(holdRoom(),Math.round(rand(4,10)));state='event';
-    showOv(`<div class="kicker">ARRIVING · ${s.name.toUpperCase()}</div><h2>Drifting wreck</h2><p>${pick(['You find an abandoned freighter. The captain’s log just says “never again”.','A wreck tumbles past the gate. Its cargo bay is still sealed.','Somebody left a cargo pod here with a note: “finders keepers”.'])}</p>
-      ${amt>0?`<p>Salvage: <b style="color:${TYPES[k].ore}">${amt} ${TYPES[k].name}</b></p><div class="btns"><button class="btn" data-act="salvage" data-k="${k}" data-v="${amt}">Take it</button><button class="btn alt" data-act="sysmap">Leave it</button></div>`
-        :`<p>Your hold is full, so you leave it.</p><div class="btns"><button class="btn" data-act="sysmap">Continue</button></div>`}`);return}
-  toast(`Arrived at ${s.name} · day ${fr.day}`);showSystem()}
-
 // ---- screens ----
 const holdBar=()=>{const u=cargoUsed(),c=cargoCap();return`<span>Cargo</span><span class="v" style="color:${u>=c?'#ff7a5a':'inherit'}">${Math.floor(u)} / ${c}</span>`};
 function showStation(){state='station';const id=fr.sys,s=getSys(id);rememberPrices(id);computeStats();
@@ -682,7 +710,7 @@ function showStation(){state='station';const id=fr.sys,s=getSys(id);rememberPric
       <div class="mp" style="color:${rel>1.15?'#7dff7a':rel<.85?'#ff7a5a':'#ffc845'}">${fmt(p)}<small> cr${rel>1.15?' ▲':rel<.85?' ▼':''}</small></div>
       ${have?`<button class="sellb" data-act="sell" data-k="${k}">Sell ${fmt(Math.round(p*have))}</button>`:'<span></span>'}</div>`}).join('');
   const total=Object.keys(fr.cargo).reduce((a,k)=>a+priceOf(id,k)*fr.cargo[k],0);
-  showOv(`<div class="kicker">${s.name.toUpperCase()} · DAY ${fr.day}</div><h2>${s.station}</h2>
+  showOv(`<div class="kicker">${s.name.toUpperCase()} · ${(s.kind||'').toUpperCase()} · DAY ${fr.day}</div><h2>${s.icon||''} ${s.station}</h2>
     <div class="row2"><button class="btn" data-act="undock">🚀 Undock</button><button class="btn alt" data-act="shop">🛠 Shipyard</button></div>
     ${fr.fuel<FUEL_MAX?`<div class="row2"><button class="btn alt" data-act="refuel" ${credits<fuelPrice()?'disabled':''}>⛽ Refuel ${FUEL_MAX-fr.fuel} jump${FUEL_MAX-fr.fuel>1?'s':''} · ${fmt(fuelPrice()*(FUEL_MAX-fr.fuel))} cr</button></div>`:''}
     <div class="radio"><b>STATION NEWS</b>${fr.news===fr.day*1000+hashStr(id)%997?fr.newsTxt:(fr.newsTxt=newsFor(id),fr.news=fr.day*1000+hashStr(id)%997,fr.newsTxt)}</div>
@@ -692,56 +720,168 @@ function showStation(){state='station';const id=fr.sys,s=getSys(id);rememberPric
     ${cargoUsed()>0?`<div class="btns" style="margin-top:10px"><button class="btn" data-act="sellall">Sell everything · ${fmt(Math.round(total))} cr</button></div>`:''}
     <div class="btns"><button class="btn alt" data-act="menu">Main menu</button></div>
     <div class="help">▲ pays more than usual here · ▼ pays less. Selling a lot of one ore lowers its price here for a few days.</div>`)}
-function sysSvg(id){const s=getSys(id),W=340,H=190,cx=W/2,cy=H/2+4,col=`hsl(${s.hue},80%,65%)`;let g='';
-  g+=`<circle cx="${cx}" cy="${cy}" r="14" fill="hsl(${s.hue},90%,70%)" opacity=".9"/><circle cx="${cx}" cy="${cy}" r="30" fill="hsl(${s.hue},90%,60%)" opacity=".15"/>`;
+function sysSvg(id){const s=getSys(id),W=340,H=190,cx=W/2,cy=H/2+4,sun=SUN[s.look.sun]||SUN.yellow,col=sun.g;let g='';
+  g+=`<circle cx="${cx}" cy="${cy}" r="${30*sun.s}" fill="${sun.g}" opacity=".18"/><circle cx="${cx}" cy="${cy}" r="${12*Math.max(.7,sun.s)}" fill="${sun.c}"/>`;
+  if(s.look.sun2){const s2=SUN[s.look.sun2];g+=`<circle cx="${cx+26}" cy="${cy-14}" r="7" fill="${s2.c}"/><circle cx="${cx+26}" cy="${cy-14}" r="16" fill="${s2.g}" opacity=".2"/>`}
   for(const r of [52,78])g+=`<ellipse cx="${cx}" cy="${cy}" rx="${r*1.9}" ry="${r}" fill="none" stroke="rgba(255,255,255,.08)"/>`;
   g+=`<g><rect x="${cx-118}" y="${cy-46}" width="22" height="22" rx="4" fill="#2a3a52" stroke="#5ef0ff"/><text x="${cx-107}" y="${cy-14}" fill="#9fdcff" font-size="9" text-anchor="middle">STATION</text></g>`;
   g+=`<g><circle cx="${cx+122}" cy="${cy-30}" r="11" fill="none" stroke="#7fe8ff" stroke-width="3" stroke-dasharray="6 4"/><text x="${cx+122}" y="${cy-8}" fill="#9fdcff" font-size="9" text-anchor="middle">GATE</text></g>`;
-  if(HOME[id])for(let i=0;i<10;i++){const sn=s.r*10+i+1,a=Math.PI*.15+i/9*Math.PI*.95,x=cx+Math.cos(a)*150,y=cy+Math.sin(a)*70,done=sn<homeProgress(),next=sn===homeProgress();
+  if(s.story)for(let i=0;i<10;i++){const sn=s.r*10+i+1,a=Math.PI*.15+i/9*Math.PI*.95,x=cx+Math.cos(a)*150,y=cy+Math.sin(a)*70,done=sn<homeProgress(),next=sn===homeProgress();
     g+=`<circle cx="${x}" cy="${y}" r="${next?8:6}" fill="${done?col:next?'#ffc845':'#202838'}" stroke="${next?'#fff':'rgba(255,255,255,.25)'}"/><text x="${x}" y="${y+3}" fill="${done||next?'#03121a':'#6a7890'}" font-size="7" text-anchor="middle" font-weight="700">${sn}</text>`}
   return`<svg viewBox="0 0 ${W} ${H}" class="sysmap" aria-hidden="true">${g}</svg>`}
 function showSystem(){state='sysmap';const id=fr.sys,s=getSys(id),p=homeProgress();setupFieldPreview(s);
-  let story='';if(HOME[id]){const first=s.r*10+1,last=s.r*10+10;
+  let story='';if(s.story){const first=s.r*10+1,last=s.r*10+10;
     if(p>=first&&p<=last){const L=storyLoc(p),o=objFor(p);story+=`<div class="loc next"><div><b>Sector ${p}</b> · ${o[1]}<small>${o[2]}</small></div><button class="btn" data-act="fly" data-loc="story:${p}">Fly</button></div>`}
     else if(p>last)story+=`<div class="loc"><div><b>All sectors of ${s.name} cleared</b><small>Replay them for ore and stars below.</small></div></div>`;
     const done=[];for(let n=first;n<=Math.min(last,p-1);n++)done.push(`<button class="chip" data-act="fly" data-loc="story:${n}">${n} ${'★'.repeat(stars[n]||0)}</button>`);
     if(done.length)story+=`<div class="chips">${done.join('')}</div>`}
-  const jobs=sideJobs(id).map(j=>`<div class="loc"><div><b>${j.name}</b><small>${objFor(j.n,j)[2]} Danger level ${j.n}.</small></div><button class="btn alt" data-act="fly" data-loc="side:${j.id}">Fly</button></div>`).join('');
-  showOv(`<div class="kicker">${s.name.toUpperCase()} · DAY ${fr.day} · FUEL ${fr.fuel}/${FUEL_MAX} · CARGO ${Math.floor(cargoUsed())}/${cargoCap()}</div><h2>${s.name}</h2>${sysSvg(id)}
+  const jobs=sideJobs(id).map(j=>`<div class="loc"><div><b>${j.name}</b><small>${objFor(j.n,j)[2]} ${SITE_TXT[j.site]||''}. Danger ${j.n}.</small></div><button class="btn alt" data-act="fly" data-loc="side:${j.id}">Fly</button></div>`).join('');
+  showOv(`<div class="kicker">${s.name.toUpperCase()} · DAY ${fr.day} · FUEL ${fr.fuel}/${FUEL_MAX} · CARGO ${Math.floor(cargoUsed())}/${cargoCap()}</div><h2>${s.icon||''} ${s.name}</h2><div class="help" style="margin:0;text-align:left">${s.kind||''}</div>${sysSvg(id)}
+    ${fr.route&&fr.route.length?`<div class="loc next"><div><b>Journey to ${getSys(fr.route[fr.route.length-1]).name}</b><small>${fr.route.length} jump${fr.route.length>1?'s':''} left · fuel ${fr.fuel}</small></div><button class="btn" data-act="contjourney">Continue</button></div>`:''}
     <div class="loc"><div><b>${s.station}</b><small>Sell cargo, refuel, shipyard.</small></div><button class="btn alt" data-act="dock">Dock</button></div>
     ${story?`<div class="kicker" style="margin-top:12px">STORY</div>${story}`:''}
     <div class="kicker" style="margin-top:12px">JOBS TODAY</div>${jobs}
-    <div class="loc"><div><b>Jump gate</b><small>Travel to other star systems (1 fuel per jump, 1 day passes).</small></div><button class="btn alt" data-act="galaxy">Galaxy map</button></div>`)}
-function galaxyNear(){const seen=new Set([fr.sys]),q=[[fr.sys,0]];while(q.length){const[id,d]=q.shift();if(d>=3)continue;for(const l of sysLinks(id))if(!seen.has(l)&&getSys(l)&&(fr.visited.includes(l)||fr.visited.includes(id))){seen.add(l);q.push([l,d+1])}}return[...seen]}
-function showGalaxy(){state='galaxy';genNeighbors(fr.sys);const ids=galaxyNear(),sys=ids.map(getSys),W=340,H=220,pad=34;
-  const xs=sys.map(s=>s.x),ys=sys.map(s=>s.y),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys),k=Math.min((W-2*pad)/Math.max(.5,x1-x0),(H-2*pad)/Math.max(.5,y1-y0),120);
-  const P=s=>[W/2+(s.x-(x0+x1)/2)*k,H/2+(s.y-(y0+y1)/2)*k];let g='';const drawn=new Set();
-  for(const s of sys)for(const l of sysLinks(s.id)){if(!ids.includes(l))continue;const key=[s.id,l].sort().join();if(drawn.has(key))continue;drawn.add(key);const[a,b]=[P(s),P(getSys(l))],open=sysUnlocked(s.id)&&sysUnlocked(l);
-    g+=`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${open?'rgba(127,232,255,.45)':'rgba(255,90,90,.35)'}" stroke-width="2" ${open?'':'stroke-dasharray="5 5"'}/>`}
-  for(const s of sys){const[x,y]=P(s),here=s.id===fr.sys,vis=fr.visited.includes(s.id);
-    g+=`<circle cx="${x}" cy="${y}" r="${here?11:8}" fill="hsl(${s.hue},85%,${vis?62:35}%)" stroke="${here?'#fff':'none'}" stroke-width="2"/>${here?`<circle cx="${x}" cy="${y}" r="17" fill="none" stroke="#fff" stroke-opacity=".4"/>`:''}
-      <text x="${x}" y="${y+22}" fill="${vis?'#cfe0f5':'#6a7890'}" font-size="9.5" text-anchor="middle">${vis?s.name:'Uncharted'}</text>`}
-  const cards=sysLinks(fr.sys).filter(getSys).map(l=>{const s=getSys(l),open=sysUnlocked(l),kn=fr.known[l],vis=fr.visited.includes(l);
-    const pays=kn?TYPE_KEYS.map(k=>[k,kn.p[k]/TYPES[k].val]).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k])=>TYPES[k].name).join(', '):'';
-    return`<div class="loc"><div><b>${vis?s.name:'Uncharted system'}</b><small>${!open?lockText(l):vis?(pays?`Pays well for: ${pays} (seen day ${kn.day})`:'Visited'):'Nobody knows what’s out there.'}${!HOME[l]?` · danger ${sysN(l)}`:''}</small></div>
-      <button class="btn ${open?'':'alt'}" data-act="jump" data-id="${l}" ${open&&fr.fuel>=1?'':'disabled'}>Jump</button></div>`}).join('');
-  showOv(`<div class="kicker">GALAXY MAP · DAY ${fr.day} · FUEL ${fr.fuel}/${FUEL_MAX}</div><h2>Jump gate · ${getSys(fr.sys).name}</h2>
-    <svg viewBox="0 0 ${W} ${H}" class="sysmap" aria-hidden="true">${g}</svg>${cards}
-    ${fr.fuel<1?'<p style="color:#ff7a5a">Out of fuel. Dock at the station to refuel.</p>':''}
-    ${!frontierOpen()?`<div class="help">Beat the boss of each system to open the gate to the next one. Past the Frozen Halo, the galaxy goes on forever.</div>`:''}
-    <div class="btns"><button class="btn alt" data-act="sysmap">Back</button></div>`)}
+    <div class="loc"><div><b>Jump gate</b><small>Travel to other star systems (1 fuel per jump, 1 day passes).</small></div><button class="btn alt" data-act="galaxy">Star map</button></div>`)}
+// ---- star map (Galaxy-on-Fire style): drag to move, pinch / wheel to zoom, tap a system for details and a route ----
+// Fog of war: only visited systems and their direct neighbours are shown; everything else hides behind nebula fog,
+// with faint lights shining through so you can tell how big the galaxy is.
+const GMAP_BOUNDS={x0:-20,y0:-18,x1:210,y1:82},GPX=8;   // background canvases: galaxy units × GPX pixels
+let gmap=null,gmapBg=null,gmapFogKey='',gmapFog=null,warp=null;
+const knownSys=()=>{const k=new Set(fr.visited);for(const v of fr.visited)for(const l of sysLinks(v))if(getSys(l))k.add(l);return k};
+const allSys=()=>[...HOME_SYS,...Object.values(fr.gen)];
+// shortest route through open gates; you can only route through systems you have visited (you know where their gates lead)
+function routeTo(dest){if(dest===fr.sys)return[];const known=knownSys();if(!known.has(dest)||!sysUnlocked(dest))return null;
+  const prev={[fr.sys]:null},q=[fr.sys];
+  while(q.length){const a=q.shift();if(a===dest)break;if(a!==fr.sys&&!fr.visited.includes(a))continue;
+    for(const b of sysLinks(a)){if(b in prev||!getSys(b)||!known.has(b)||!sysUnlocked(b))continue;prev[b]=a;q.push(b)}}
+  if(!(dest in prev))return null;const path=[];for(let x=dest;x;x=prev[x])path.unshift(x);return path.slice(1)}
+// "phantom" lights far out in the fog: hints of how much galaxy there is beyond what you know
+function phantomStars(){const R=srand(hashStr(fr.seed+'phantoms')),out=[];for(let i=0;i<70;i++){out.push({x:84+R()*120,y:-10+R()*84,h:Math.floor(R()*360),s:.5+R()})}
+  for(let i=0;i<14;i++)out.push({x:R()*80,y:R()*64,h:Math.floor(R()*360),s:.35+R()*.4});return out}
+function gmapBackground(){if(gmapBg)return gmapBg;const B=GMAP_BOUNDS,W=(B.x1-B.x0)*GPX,H=(B.y1-B.y0)*GPX,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');
+  g.fillStyle='#04060d';g.fillRect(0,0,W,H);const R=srand(1234567);g.globalCompositeOperation='lighter';
+  for(let i=0;i<46;i++){const x=R()*W,y=R()*H,r=60+R()*260,h=[210,260,190,300,20,160][Math.floor(R()*6)],gr=g.createRadialGradient(x,y,0,x,y,r);
+    gr.addColorStop(0,`hsla(${h},70%,45%,${.05+R()*.06})`);gr.addColorStop(1,`hsla(${h},70%,45%,0)`);g.fillStyle=gr;g.fillRect(x-r,y-r,2*r,2*r)}
+  g.globalCompositeOperation='source-over';for(let i=0;i<3200;i++){g.fillStyle=`rgba(255,255,255,${R()*.5+.05})`;const s=R()<.08?1.6:1;g.fillRect(R()*W,R()*H,s,s)}
+  return gmapBg=c}
+// fog layer: a thick nebula with holes punched where you have been (big) and around known neighbours (small)
+function gmapFogLayer(){const key=fr.visited.join()+'|'+[...knownSys()].join();if(gmapFog&&key===gmapFogKey)return gmapFog;gmapFogKey=key;
+  const B=GMAP_BOUNDS,W=(B.x1-B.x0)*GPX/2,H=(B.y1-B.y0)*GPX/2,k=GPX/2,c=gmapFog||document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');
+  g.fillStyle='rgba(14,10,30,.9)';g.fillRect(0,0,W,H);const R=srand(777);
+  for(let i=0;i<260;i++){const x=R()*W,y=R()*H,r=20+R()*90,h=[255,270,220,300][Math.floor(R()*4)],gr=g.createRadialGradient(x,y,0,x,y,r);
+    gr.addColorStop(0,`hsla(${h},45%,${18+R()*14}%,.55)`);gr.addColorStop(1,`hsla(${h},45%,20%,0)`);g.fillStyle=gr;g.fillRect(x-r,y-r,2*r,2*r)}
+  g.globalCompositeOperation='destination-out';const hole=(s,rad)=>{const x=(s.x-B.x0)*k,y=(s.y-B.y0)*k,r=rad*k,gr=g.createRadialGradient(x,y,r*.35,x,y,r);
+    gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(x-r,y-r,2*r,2*r)};
+  const known=knownSys();for(const id of known)hole(getSys(id),fr.visited.includes(id)?17:9);g.globalCompositeOperation='source-over';return gmapFog=c}
+const sunCol=s=>(SUN[(s.look||{}).sun]||SUN.yellow).g;
+function gmapDraw(t){if(!gmap||!gmap.cv.isConnected)return false;const{cv,cx,cy,z}=gmap,g=gmap.g,W=cv.width/DPR,H=cv.height/DPR,u=W/70*z;
+  g.setTransform(DPR,0,0,DPR,0,0);g.fillStyle='#04060d';g.fillRect(0,0,W,H);const P=(x,y)=>[W/2+(x-cx)*u,H/2+(y-cy)*u],B=GMAP_BOUNDS;
+  const[bx,by]=P(B.x0,B.y0);g.drawImage(gmapBackground(),bx,by,(B.x1-B.x0)*u,(B.y1-B.y0)*u);
+  // faint hex grid
+  g.strokeStyle='rgba(120,170,220,.06)';g.lineWidth=1;const hs=4*u;if(hs>10){g.beginPath();for(let row=-1;row*hs*.866<H+hs;row++)for(let col=-1;col*hs*1.5<W+hs;col++){
+    const ox=((W/2-cx*u)%(hs*1.5)),oy=((H/2-cy*u)%(hs*.866*2)),x=col*hs*1.5+ox,y=row*hs*.866*2+oy+(col%2?hs*.866:0);
+    for(let i=0;i<6;i++){const a=i/6*TAU,x2=x+Math.cos(a)*hs*.5,y2=y+Math.sin(a)*hs*.5;i?g.lineTo(x2,y2):g.moveTo(x2,y2)}g.closePath()}g.stroke()}
+  const known=knownSys(),route=gmap.sel?routeTo(gmap.sel)||[]:[],routeSet=new Set([fr.sys,...route]);
+  // hidden systems and phantom lights: faint glows that shine through the fog
+  g.globalCompositeOperation='lighter';
+  for(const s of allSys())if(!known.has(s.id)){const[x,y]=P(s.x,s.y);glowOn(g,x,y,10*Math.max(.7,z),sunCol(s),.55)}
+  for(const s of phantomStars()){const[x,y]=P(s.x,s.y);glowOn(g,x,y,7*s.s*Math.max(.7,z),PHANTOM_COL[s.h%PHANTOM_COL.length],.45)}
+  g.globalCompositeOperation='source-over';
+  // fog of war
+  const F=gmapFogLayer();g.drawImage(F,bx,by,(B.x1-B.x0)*u,(B.y1-B.y0)*u);
+  // lanes between known systems
+  const drawn=new Set();for(const id of known){const s=getSys(id);for(const l of sysLinks(id)){if(!known.has(l))continue;const key=[id,l].sort().join();if(drawn.has(key))continue;drawn.add(key);
+    if(!fr.visited.includes(id)&&!fr.visited.includes(l))continue;const o=getSys(l),[x1,y1]=P(s.x,s.y),[x2,y2]=P(o.x,o.y),open=sysUnlocked(id)&&sysUnlocked(l),onRoute=routeSet.has(id)&&routeSet.has(l)&&route.length;
+    g.strokeStyle=onRoute?'rgba(255,200,69,.9)':open?'rgba(220,235,255,.38)':'rgba(255,90,90,.45)';g.lineWidth=onRoute?2.5:1.2;g.setLineDash(open?[]:[5,5]);
+    g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();g.setLineDash([])}}
+  // systems: glowing star in a frame, name below
+  const fs=Math.round(clamp(10*Math.sqrt(z),9,14)),box=clamp(13*Math.sqrt(z),11,20);
+  for(const id of known){const s=getSys(id),[x,y]=P(s.x,s.y),vis=fr.visited.includes(id),here=id===fr.sys,sel=id===gmap.sel,open=sysUnlocked(id);
+    if(x<-60||x>W+60||y<-40||y>H+40)continue;
+    g.fillStyle='rgba(8,16,30,.55)';g.strokeStyle=sel?'rgba(255,200,69,.95)':here?'rgba(255,255,255,.9)':'rgba(94,200,255,.45)';g.lineWidth=sel||here?2:1.2;
+    g.beginPath();g.rect(x-box,y-box,box*2,box*2);g.fill();g.stroke();
+    g.globalCompositeOperation='lighter';const c=sunCol(s);glowOn(g,x,y,box*1.6,c,vis?.95:.45);if((s.look||{}).sun2)glowOn(g,x+box*.45,y-box*.3,box*.9,(SUN[s.look.sun2]||SUN.white).g,vis?.8:.35);g.globalCompositeOperation='source-over';
+    g.fillStyle=vis?'#ffffff':'rgba(255,255,255,.5)';g.beginPath();g.arc(x,y,vis?2.2:1.6,0,TAU);g.fill();
+    if(here){g.strokeStyle=`rgba(255,255,255,${.35+.25*Math.sin(t*.005)})`;g.lineWidth=1.5;g.beginPath();g.arc(x,y,box*1.55+2*Math.sin(t*.005),0,TAU);g.stroke()}
+    g.font=`600 ${fs}px "Exo 2",sans-serif`;g.textAlign='center';g.fillStyle=vis?'#e3efff':'rgba(200,215,235,.6)';
+    const label=(vis?(s.icon?s.icon+' ':'')+s.name:'Unexplored')+(open?'':' 🔒');g.fillText(label,x,y+box+fs+2)}
+  return true}
+const PHANTOM_COL=['#9fc8ff','#ffd8a0','#ffb0c0','#c8b0ff','#a0ffe0','#fff0c0'];
+function gmapLoop(t){if(state!=='galaxy'||!gmapDraw(t)){gmap&&(gmap.raf=0);return}gmap.raf=requestAnimationFrame(gmapLoop)}
+function gmapInfo(){const el=document.getElementById('gInfo');if(!el||!gmap)return;const id=gmap.sel||fr.sys,s=getSys(id),vis=fr.visited.includes(id),here=id===fr.sys,kn=fr.known[id];
+  let pays='',cheap='';if(kn){const r=TYPE_KEYS.map(k=>[k,kn.p[k]/TYPES[k].val]).sort((a,b)=>b[1]-a[1]);pays=r.slice(0,3).map(([k])=>TYPES[k].name).join(', ');cheap=r.slice(-2).map(([k])=>TYPES[k].name).join(', ')}
+  const route=routeTo(id);let act='';
+  if(here)act=`<button class="btn" data-act="sysmap">Back to ${s.name}</button>`;
+  else if(!sysUnlocked(id))act=`<p style="color:#ff7a5a;margin:4px 0">🔒 ${lockText(id)}</p>`;
+  else if(!route)act=`<p style="color:#93a8c6;margin:4px 0">No known route yet. Explore the systems next to it first.</p>`;
+  else{const n=route.length;act=`<div class="ginfo-route">${n} jump${n>1?'s':''} · ${n} fuel · ${n} day${n>1?'s':''}${fr.fuel<n?` · <span style="color:#ff7a5a">you have ${fr.fuel} fuel</span>`:''}</div>
+    <button class="btn" data-act="travel" data-id="${id}" ${fr.fuel<n?'disabled':''}>🚀 Travel to ${vis?s.name:'this system'}</button>`}
+  el.innerHTML=`<div class="ginfo"><b>${vis?(s.icon||'')+' '+s.name:'Unexplored system'}</b>${here?' <span class="tag">YOU ARE HERE</span>':''}
+    <small>${vis?`${s.kind||'Frontier system'} · ${s.station} · danger ${sysN(id)}`:'Long-range scans show a station, nothing more. Go and see.'}</small>
+    ${kn?`<small>Pays well for: <b style="color:#7dff7a">${pays}</b> · cheap here: ${cheap} <i>(prices from day ${kn.day})</i></small>`:''}${act}</div>`}
+function showGalaxy(sel){state='galaxy';genNeighbors(fr.sys);
+  showOv(`<div class="kicker">STAR MAP · DAY ${fr.day} · FUEL ${fr.fuel}/${FUEL_MAX} · CARGO ${Math.floor(cargoUsed())}/${cargoCap()}</div>
+    <canvas id="gmapCv" class="gmap"></canvas><div class="help" style="margin:4px 0 0">Drag to move · pinch or scroll to zoom · tap a system</div><div id="gInfo"></div>
+    ${!frontierOpen()?'<div class="help">Beat each system’s boss to open the way onward. The fog hides much more: past the Frozen Halo the galaxy goes on forever.</div>':''}
+    <div class="btns"><button class="btn alt" data-act="sysmap">Back</button></div>`);
+  const cv=document.getElementById('gmapCv'),W=cv.clientWidth,H=Math.round(clamp(innerHeight*.5,260,460));cv.style.height=H+'px';cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+  const s=getSys(fr.sys);if(gmap&&gmap.raf)cancelAnimationFrame(gmap.raf);gmap={cv,g:cv.getContext('2d'),cx:s.x,cy:s.y,z:gmap?gmap.z:1.6,sel:sel||null,ptrs:new Map(),raf:0};
+  const ptr=new Map();let down=null,pinch=null;
+  const toWorld=(px,py)=>{const r=cv.getBoundingClientRect(),u=r.width/70*gmap.z;return[gmap.cx+(px-r.left-r.width/2)/u,gmap.cy+(py-r.top-r.height/2)/u]};
+  const zoomAt=(px,py,f)=>{const[wx,wy]=toWorld(px,py);gmap.z=clamp(gmap.z*f,.8,4);const[wx2,wy2]=toWorld(px,py);gmap.cx+=wx-wx2;gmap.cy+=wy-wy2;clampView()};
+  const clampView=()=>{const B=GMAP_BOUNDS;gmap.cx=clamp(gmap.cx,B.x0+10,B.x1-10);gmap.cy=clamp(gmap.cy,B.y0+8,B.y1-8)};
+  cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptr.size===1)down={x:e.clientX,y:e.clientY,t:performance.now(),moved:0};if(ptr.size===2){const[a,b]=[...ptr.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y)};down=null}});
+  cv.addEventListener('pointermove',e=>{if(!ptr.has(e.pointerId))return;const p=ptr.get(e.pointerId),dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+    if(ptr.size===1){const u=cv.getBoundingClientRect().width/70*gmap.z;gmap.cx-=dx/u;gmap.cy-=dy/u;clampView();if(down)down.moved+=Math.abs(dx)+Math.abs(dy)}
+    else if(ptr.size===2&&pinch){const[a,b]=[...ptr.values()],d=Math.hypot(a.x-b.x,a.y-b.y);zoomAt((a.x+b.x)/2,(a.y+b.y)/2,d/pinch.d);pinch.d=d}});
+  const up=e=>{if(!ptr.has(e.pointerId))return;ptr.delete(e.pointerId);if(ptr.size<2)pinch=null;
+    if(down&&ptr.size===0&&down.moved<10&&performance.now()-down.t<500){const[wx,wy]=toWorld(e.clientX,e.clientY),u=cv.getBoundingClientRect().width/70*gmap.z;let best=null,bd=26/u;
+      for(const id of knownSys()){const s=getSys(id),d=Math.hypot(s.x-wx,s.y-wy);if(d<bd){bd=d;best=id}}if(best){gmap.sel=best;sfx.click();gmapInfo()}}
+    if(ptr.size===0)down=null};
+  cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+  cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,e.deltaY<0?1.15:1/1.15)},{passive:false});
+  gmapInfo();gmap.raf=requestAnimationFrame(gmapLoop)}
+
+// ---- travelling: hop through the gates on the route; each hop costs 1 fuel and 1 day and may end in an event ----
+function travel(dest){const r=routeTo(dest);if(!r||!r.length)return;if(fr.fuel<r.length)return toast(`Not enough fuel: this trip needs ${r.length}.`);fr.route=r;saveGame();nextHop()}
+function nextHop(){if(!fr.route||!fr.route.length){fr.route=null;return showSystem()}const id=fr.route[0];
+  if(fr.fuel<1){fr.route=null;toast('Out of fuel. Journey stopped.');return showSystem()}
+  state='warp';hideOv();warp={t:0,id,stars:Array.from({length:220},()=>({x:rand(-1,1),y:rand(-1,1),z:rand(.05,1)}))};sfx.jump()}
+function updateWarp(dt){warp.t+=dt;for(const s of warp.stars){s.z-=dt*(.25+warp.t*1.6);if(s.z<=.02){s.x=rand(-1,1);s.y=rand(-1,1);s.z=1}}
+  if(warp.t>1.35){const id=warp.id;warp=null;fr.route.shift();if(!fr.route.length)fr.route=null;arriveAt(id)}}
+function drawWarp(){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='rgba(3,4,12,.55)';ctx.fillRect(0,0,SW,SH);const cx=SW/2,cy=SH/2,k=Math.max(SW,SH)*.5,s=getSys(warp.id);
+  ctx.lineCap='round';for(const p of warp.stars){const x=cx+p.x/p.z*k*.3,y=cy+p.y/p.z*k*.3,z2=p.z+.04+warp.t*.05,x2=cx+p.x/z2*k*.3,y2=cy+p.y/z2*k*.3;
+    ctx.strokeStyle=`rgba(${200+55*(1-p.z)|0},${220},255,${Math.min(1,(1-p.z)*1.4)})`;ctx.lineWidth=1+(1-p.z)*2;ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x,y);ctx.stroke()}
+  ctx.globalCompositeOperation='lighter';drawGlow(cx,cy,60+warp.t*90,sunCol(s),.5);if(warp.t>1.1)drawGlow(cx,cy,Math.max(SW,SH)*(warp.t-1.1)*4,'#ffffff',Math.min(1,(warp.t-1.1)*5));ctx.globalCompositeOperation='source-over';
+  ctx.font='700 13px Orbitron';ctx.textAlign='center';ctx.fillStyle='#cfe8ff';ctx.fillText('JUMPING TO '+(fr.visited.includes(warp.id)?s.name.toUpperCase():'UNEXPLORED SYSTEM'),cx,SH*.82)}
+let eventRoll=()=>Math.random();   // jump events: <.18 ambush, <.30 wreck (a separate function so tests can steer it)
+function arriveAt(id){fr.fuel--;fr.day++;for(const s of Object.values(fr.sat))for(const k in s){s[k]*=.7;if(s[k]<.5)delete s[k]}
+  const first=!fr.visited.includes(id);fr.sys=id;if(first)fr.visited.push(id);genNeighbors(id);saveGame();
+  const r=eventRoll(),s=getSys(id),n=sysN(id),more=fr.route&&fr.route.length;
+  if(r<.18&&homeProgress()>3){state='event';showOv(`<div class="kicker">ARRIVING · ${s.name.toUpperCase()}</div><h2 style="color:#ff7a5a">⚠ Pirate ambush!</h2>
+      <p>${pick(['A pirate gang was waiting at the gate. Their leader says: “Nice cargo. Hand it over.”','Pirates! They have a banner that says WELCOME. It is a trap.','Three pirate ships drop out of nowhere. One of them is painted pink, which is somehow worse.'])}</p>
+      <div class="btns"><button class="btn warn" data-act="ambushFight">Fight them</button>${cargoUsed()>0?`<button class="btn alt" data-act="ambushPay">Hand over 25% of your cargo</button>`:''}</div>`);return}
+  if(r<.3){const k=bestType(n),amt=Math.min(holdRoom(),Math.round(rand(4,10)));state='event';
+    showOv(`<div class="kicker">ARRIVING · ${s.name.toUpperCase()}</div><h2>Drifting wreck</h2><p>${pick(['You find an abandoned freighter. The captain’s log just says “never again”.','A wreck tumbles past the gate. Its cargo bay is still sealed.','Somebody left a cargo pod here with a note: “finders keepers”.'])}</p>
+      ${amt>0?`<p>Salvage: <b style="color:${TYPES[k].ore}">${amt} ${TYPES[k].name}</b></p><div class="btns"><button class="btn" data-act="salvage" data-k="${k}" data-v="${amt}">Take it</button><button class="btn alt" data-act="sysmap">Leave it</button></div>`
+        :`<p>Your hold is full, so you leave it.</p><div class="btns"><button class="btn" data-act="sysmap">Continue</button></div>`}`);return}
+  if(first)toast(`New system discovered: ${s.name}!`);
+  if(more){nextHop();return}
+  if(!first)toast(`Arrived at ${s.name} · day ${fr.day}`);showSystem()}
+
 // decorative field behind the map screens, in the system's colours
-function setupFieldPreview(s){const n=HOME[s.id]?s.r*10+3:LAST_SECTOR+1;setupField(n,false);nebula=makeNebula(s.hue,1)}
+function setupFieldPreview(s){const n=HOME[s.id]?s.r*10+3:LAST_SECTOR+1;setupField(n,false)}
 function findLoc(code){const[k,v]=code.split(':');if(k==='story')return storyLoc(+v);return sideJobs(fr.sys).find(j=>j.id===v)}
 const FR_ACT={
   dock:()=>showStation(),undock:()=>showSystem(),sysmap:()=>showSystem(),galaxy:()=>showGalaxy(),
-  jump:D=>jumpTo(D.id),
+  travel:D=>travel(D.id),contjourney:()=>nextHop(),
   fly:D=>{const L=findLoc(D.loc);if(L)showBrief(L)},
   sell:D=>{const t=sellOre(D.k);if(t)toast(`Sold ${TYPES[D.k].name} for ${fmt(t)} cr`);showStation()},
   sellall:()=>{sellAll();showStation()},
   refuel:()=>{const need=FUEL_MAX-fr.fuel,can=Math.min(need,Math.floor(credits/fuelPrice()));if(can>0){credits-=can*fuelPrice();fr.fuel+=can;sfx.buy();saveGame()}showStation()},
   salvage:D=>{const k=D.k,v=Math.min(+D.v,holdRoom());fr.cargo[k]=(fr.cargo[k]||0)+v;sfx.pu();saveGame();toast(`+${v} ${TYPES[k].name} in your hold`);showSystem()},
-  ambushFight:()=>{const id=fr.sys;startFlight({kind:'ambush',n:sysN(id),mission:'ambush',name:'Pirate ambush',hue:getSys(id).hue})},
+  ambushFight:()=>{const id=fr.sys;startFlight({kind:'ambush',n:sysN(id),mission:'ambush',name:'Pirate ambush',site:'belt'})},
   refuelShop:()=>{FR_ACT.refuel();showShop()},
   ambushPay:()=>{for(const k in fr.cargo){fr.cargo[k]*=.75;if(fr.cargo[k]<.01)delete fr.cargo[k]}saveGame();toast('The pirates take their cut and fly off laughing.');showSystem()},
 };
@@ -792,7 +932,12 @@ function setupField(n,withShip){
   const m0=withShip&&cur?cur.mission:'clear';
   WORLD=m0==='boss'?Math.min(2800,1800+n*55):m0==='ambush'?2600:Math.min(5000,3200+n*45);HALF=WORLD/2;clusters=[];
   asteroids=[];bullets=[];ebullets=[];missiles=[];enemies=[];ores=[];pus=[];mines=[];holes=[];blasts=[];arcs=[];parts=[];texts=[];rig=null;beam=null;storm=null;lode=null;frost=[];stolen=0;
-  const R=REGIONS[regionOf(n)],hue=(withShip&&cur&&cur.hue!=null?cur.hue:R.hues[n%5])+rand(-10,10);nebula=makeNebula(hue,R.dim);planet=makePlanet((hue+150)%360);planetPos={x:rand(.6,.85),y:rand(.18,.4)};
+  const R=REGIONS[regionOf(n)],sysNow=fr&&getSys(fr.sys),L=sysNow&&sysNow.look;siteNow=withShip&&cur&&cur.site||'belt';suns=[];planetScale=.5;
+  if(L){const sun=SUN[L.sun]||SUN.yellow,near=siteNow==='sun',sx=near?rand(.3,.7):rand(.08,.92),sy=near?rand(.3,.45):rand(.06,.3);
+    nebula=makeNebula(L.neb[0],R.dim,L.neb[1],L.dens*(siteNow==='nebula'?1.8:1));planet=makePlanet(L.planet,L.ring);
+    planetScale=siteNow==='giant'||L.giant?1.15:.5;planetPos=siteNow==='giant'?{x:rand(.55,.8),y:rand(.6,.85)}:{x:sx<.5?rand(.62,.86):rand(.14,.38),y:rand(.18,.45)};
+    suns.push({x:sx,y:sy,r:near?Math.min(.15,.09*sun.s):.045*sun.s,c:sun.g});if(L.sun2){const s2=SUN[L.sun2]||SUN.white;suns.push({x:sx+(near?.16:.05),y:sy+(near?.08:.03),r:(near?.07:.025)*s2.s,c:s2.g})}}
+  else{const hue=R.hues[n%5]+rand(-10,10);nebula=makeNebula(hue,R.dim);planet=makePlanet((hue+150)%360);planetPos={x:rand(.6,.85),y:rand(.18,.4)}}
   mission=withShip?(cur?cur.mission:missionOf(n)):'clear';
   {const kc=3+Math.floor(WORLD/1600);for(let i=0;i<kc;i++){const[x,y]=randomSpot(450);clusters.push({x,y})}}
   const sc=WORLD>3000?1.5:1;let big,med;
@@ -1265,7 +1410,9 @@ function updateFx(dt){
 function render(t){
   ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#03040a';ctx.fillRect(0,0,SW,SH);
   if(nebula){const NS=1.5,T=1024*NS,ox=mod(-cam.x*ZOOM*.05,T)-T,oy=mod(-cam.y*ZOOM*.05,T)-T;for(let x=ox;x<SW;x+=T)for(let y=oy;y<SH;y+=T)ctx.drawImage(nebula,x,y,T,T)}
-  if(planet){const pr=Math.min(SW,SH)*.5,px=SW*planetPos.x-cam.x*ZOOM*.02,py=SH*planetPos.y-cam.y*ZOOM*.02;ctx.globalAlpha=.6;ctx.drawImage(planet,px-pr,py-pr,pr*2,pr*2);ctx.globalAlpha=1}
+  if(suns.length){ctx.globalCompositeOperation='lighter';const mn=Math.min(SW,SH);for(const su of suns){const x=SW*su.x-cam.x*ZOOM*.008,y=SH*su.y-cam.y*ZOOM*.008,r=mn*su.r;
+    ctx.globalAlpha=.85;ctx.drawImage(sunSprite(su.c),x-r*4,y-r*4,r*8,r*8);ctx.globalAlpha=.18;ctx.drawImage(sunSprite(su.c),x-r*16,y-r*1.1,r*32,r*2.2);ctx.globalAlpha=1}ctx.globalCompositeOperation='source-over'}
+  if(planet){const pr=Math.min(SW,SH)*planetScale,px=SW*planetPos.x-cam.x*ZOOM*.02,py=SH*planetPos.y-cam.y*ZOOM*.02;ctx.globalAlpha=.6;ctx.drawImage(planet,px-pr,py-pr,pr*2,pr*2);ctx.globalAlpha=1}
   for(let l=0;l<3;l++){const p=STAR_P[l],ox=-cam.x*ZOOM*p,oy=-cam.y*ZOOM*p;
     for(const s of STARS[l]){const tw=l===2?.6+.4*Math.sin(t*.002+s.t):1;ctx.globalAlpha=s.b*tw;ctx.fillStyle=l===2?'#e6f3ff':'#b9c9e6';
       const bx=mod(s.x+ox,900),by=mod(s.y+oy,900);for(let x=bx;x<SW;x+=900)for(let y=by;y<SH;y+=900)ctx.fillRect(x,y,s.s,s.s)}}
@@ -1339,7 +1486,10 @@ function render(t){
   for(const m of missiles){ctx.save();ctx.translate(m.x,m.y);ctx.rotate(m.a);ctx.fillStyle='#d9dde6';ctx.fillRect(-6,-2,11,4);ctx.fillStyle='#ff5a3c';ctx.fillRect(4,-2,3,4);ctx.restore()}
   ctx.textAlign='center';for(const tx of texts){const a=1-tx.t/1.1;ctx.globalAlpha=a;ctx.font=`700 ${tx.size}px Orbitron`;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillText(tx.txt,tx.x+1.5,tx.y+1.5);ctx.fillStyle=tx.color;ctx.fillText(tx.txt,tx.x,tx.y)}
   ctx.globalAlpha=1;
-  ctx.setTransform(DPR,0,0,DPR,0,0);if(state==='play'||state==='pause')drawHUD(t)}
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if(siteNow==='sun'&&suns[0]&&state!=='title'){ctx.globalCompositeOperation='lighter';ctx.fillStyle=hexA(suns[0].c,.035);ctx.fillRect(0,0,SW,SH);ctx.globalCompositeOperation='source-over'}
+  if(siteNow==='nebula'&&(state==='play'||state==='pause')){const g=ctx.createRadialGradient(SW/2,SH/2,Math.min(SW,SH)*.28,SW/2,SH/2,Math.max(SW,SH)*.72);g.addColorStop(0,'rgba(20,10,40,0)');g.addColorStop(1,'rgba(20,10,40,.72)');ctx.fillStyle=g;ctx.fillRect(0,0,SW,SH)}
+  if(state==='play'||state==='pause')drawHUD(t)}
 
 function drawShipBody(g,d,thrusting){
   const L=d.len,bw=d.bw,sp=d.span,w=d.wx,engY=d.eng===2?[-bw*.55,bw*.55]:[0];
@@ -1472,7 +1622,7 @@ const mmss=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
 function drawHUD(t){const m=12,small=SW<500,w=small?132:184;
   ctx.font=`700 ${small?10:12}px Orbitron`;ctx.textAlign='left';ctx.fillStyle='#8fb6c9';ctx.fillText(cur&&cur.kind!=='story'?`${cur.name.toUpperCase()} · ${getSys(fr.sys).name.toUpperCase()}`:`SECTOR ${level} · ${(fr?getSys(fr.sys).name:REGIONS[regionOf(level)].name).toUpperCase()}`,m,m+11);
   ctx.fillStyle='#ffc845';ctx.font=`700 ${small?17:21}px Orbitron`;ctx.fillText(fmt(credits)+' cr',m,m+35);
-  if(fr){const u=cargoUsed(),c=cargoCap();ctx.font=`700 ${small?9:10}px Orbitron`;ctx.fillStyle=u>=c?'#ff7a5a':'#9fdcff';ctx.textAlign='right';ctx.fillText(`CARGO ${Math.floor(u)}/${c}`,m+w,m+35);ctx.textAlign='left'}
+  if(fr){const u=cargoUsed(),c=cargoCap();ctx.font=`700 ${small?9:10}px Orbitron`;ctx.fillStyle=u>=c?'#ff7a5a':'#9fdcff';ctx.textAlign='left';ctx.fillText(`CARGO ${Math.floor(u)}/${c}`,m+Math.max(1,lives)*18+6,m+92)}
   bar(m,m+44,w,12,hull/S.hullMax,hull/S.hullMax<.3?'#ff3b3b':'#ff8a3d',hull/S.hullMax<.3?'#ff7a5a':'#ffc845','HULL');
   bar(m,m+60,w,12,shield/S.shieldMax,'#1e8fd8','#5ef0ff','SHIELD');
   for(let i=0;i<lives;i++){ctx.save();ctx.translate(m+8+i*18,m+88);ctx.rotate(-Math.PI/2);ctx.fillStyle='#c8d3e2';ctx.beginPath();ctx.moveTo(8,0);ctx.lineTo(-6,-6);ctx.lineTo(-3,0);ctx.lineTo(-6,6);ctx.closePath();ctx.fill();ctx.restore()}
@@ -1540,6 +1690,7 @@ function drawHUD(t){const m=12,small=SW<500,w=small?132:184;
 let last=performance.now();
 function frame(now){const dt=Math.min(1/30,(now-last)/1000);last=now;
   try{
+  if(state==='warp'&&warp){updateWarp(dt);if(warp)drawWarp();requestAnimationFrame(frame);return}
   if(state==='play'){playT+=dt;update(dt);if(ship&&!ship.dead){const tx=ship.x+ship.vx*.25,ty=ship.y+ship.vy*.25;cam.x+=(tx-cam.x)*Math.min(1,5*dt);cam.y+=(ty-cam.y)*Math.min(1,5*dt)}}
   else if(state==='title'){update(dt);cam.x+=dt*25;cam.y+=dt*10}
   if(state!=='pause')updateFx(dt);
@@ -1569,7 +1720,7 @@ function showBrief(loc){loc=loc||storyLoc(homeProgress());state='brief';const n=
   setupFieldPreview(sys);SY.briefLoc=loc;
   showOv(`<div class="kicker">${sys.name.toUpperCase()}${story&&stars[n]?' · BEST '+'★'.repeat(stars[n]):''}${story?'':' · DANGER '+n}</div><h2>${story?'Sector '+n:loc.name}</h2>
   <div class="radio"><b>DISPATCH</b>${story?briefFor(n):pick(['Easy money, they said. They always say that.','The client pays on delivery. The pirates pay with lasers.','Standard job. Try not to make it exciting.','Fill the hold, come back alive. In that order is fine.'])}</div>
-  <div class="obj"><span class="ic">${o[0]}</span><div><b>${o[1]}</b>${o[2]}</div></div>
+  <div class="obj"><span class="ic">${o[0]}</span><div><b>${o[1]}</b>${o[2]}${loc.site?`<br><span style="color:#93a8c6;font-size:13px">${SITE_TXT[loc.site]}</span>`:''}</div></div>
   <div class="rows"><span>Credits</span><span class="v credits">${fmt(credits)} cr</span>${holdBar()}<span>Hull</span><span class="v" style="color:${hull<S.hullMax*.5?'#ff7a5a':'inherit'}">${Math.round(hull)} / ${S.hullMax}</span>
   <span>Ships · Novas</span><span class="v">${lives} · ${bombs}</span><span>Weapon</span><span class="v">${WEAPONS.find(w=>w.id===weapon).name} ${wl[weapon]+1}</span></div>
   ${loc.mission!=='quota'&&holdRoom()<10?'<p style="color:#ff9a3c">Your hold is almost full. Sell at the station first, or new ore won\u2019t fit.</p>':''}
@@ -1586,11 +1737,12 @@ function endLevel(){state='summary';const st=levelStats,n=level,loc=cur||storyLo
   if(story)stars[n]=Math.max(stars[n]||0,star);
   const rows=TYPE_KEYS.filter(k=>st.ore[k]).map(k=>`<span><i class="dot" style="background:${TYPES[k].ore};box-shadow:0 0 8px ${TYPES[k].ore}"></i>${TYPES[k].name} × ${st.ore[k]}</span><span class="v">${mission==='quota'?fmt(st.oreVal[k])+' cr':'in hold'}</span>`).join('');
   const kind=loc.kind;endFlight();if(firstClear)level=n+1;cur=null;saveGame();if(story)for(let i=0;i<star;i++)sfx.star(i);
-  const next=gate?HOME_SYS[n/10]:null;
+  const next=gate?STORY_SYS[n/10]:null,opened=firstClear?HOME_SYS.filter(o=>!o.story&&o.unlock===n+1):[];
   showOv(`<div class="kicker">${getSys(fr.sys).name.toUpperCase()}</div><h2>${story?'Sector '+n+' complete':kind==='ambush'?'Ambush repelled':'Job done'}</h2>
   ${story?`<div class="stars">${[0,1,2].map(i=>`<span class="${i<star?'on':'off'}">★</span>`).join('')}</div>
   <div class="starlist">★ Complete &nbsp;·&nbsp; ★ No ships lost &nbsp;·&nbsp; ★ No hull damage</div>`:''}
   ${gate?`<div class="radio"><b>DISPATCH</b>Boss down! The jump gate to <b>${next.name}</b> is open. Their station pays different prices, so a full hold of the right ore could be worth a lot more over there.</div>`:''}
+  ${opened.map(o=>`<div class="radio"><b>NEW GATE OPEN</b>${o.icon} <b>${o.name}</b> (${o.kind.toLowerCase()}) is now reachable. Check the star map.</div>`).join('')}
   ${mid?`<div class="radio"><b>DISPATCH</b>The flagship is scrap and the belt is ours. But long-range scans picked up something cold and huge out in the Frozen Halo. Gear up.</div>`:''}
   ${finale?`<div class="radio"><b>DISPATCH</b>You did it. The Frozen Halo is ours. Beyond its gate lie uncharted systems, as far as you dare to fly. Nobody has mapped them. Yet.</div>`:''}
   <div class="rows">${rows||'<span>No ore recovered</span><span></span>'}

@@ -16,7 +16,11 @@ in the browser and on his phone, so keep changes playable and explain them in pl
 - **On every push to frontier, bump `BUILD` (dev counter) and `VERSION` in `sw.js` (`'ore-rush-dev-N'`) together.** Tell the owner "DEV build N".
 - **Never merge frontier into main** until the owner says the new version is better. When merging: `DEV=false`, restore the real manifest,
   icons and sw names, continue the real BUILD number from main.
-- Frontier section `// === frontier`: `HOME_SYS` (4 hand-made systems), generated systems in `fr.gen` (`genNeighbors`), `fr` state in the save
+- Galaxy: `HOME_SYS` = 14 hand-made systems (4 `story` systems r=0..3 + 10 side systems opening at sector `unlock`), each with map
+  position (x,y), `links`, market `mul`, `kind`/`icon` and `look` (sun type from `SUN`, nebula hues, density, planet). Missions have a `site`
+  (belt/sun/giant/nebula). Star map: `showGalaxy` (canvas, fog of war `gmapFogLayer`, `routeTo`, `travel` → `nextHop` → warp → `arriveAt`;
+  `eventRoll` decides jump events). Generated frontier systems sit east of the Frozen Halo (`GSCALE` map units apart).
+- Frontier section `// === frontier`: `HOME_SYS` (the hand-made systems), generated systems in `fr.gen` (`genNeighbors`), `fr` state in the save
   (sys, day, fuel, cargo, known prices, saturation, gen, links, visited, seed). Flights: `cur` = location, `startFlight/endFlight`; while flying
   `level` is the flight difficulty and `homeLevel` the campaign progress. Markets: `priceOf`, `sellOre`, `sysEvent`. Screens: `showStation`,
   `showSystem`, `showGalaxy`; actions in `FR_ACT`. After a win an `exitGate` opens; flying into it ends the flight.

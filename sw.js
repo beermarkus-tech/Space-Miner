@@ -1,6 +1,6 @@
 // Ore Rush service worker: offline support.
 // Bump VERSION whenever you deploy changes so old caches are cleared. Keep the number equal to BUILD in index.html.
-const VERSION = 'ore-rush-dev-1';   // test version (frontier branch): own cache name, own scope (/dev/)
+const VERSION = 'ore-rush-dev-2';   // test version (frontier branch): own cache name, own scope (/dev/)
 const SHELL = [
   './',
   './index.html',
