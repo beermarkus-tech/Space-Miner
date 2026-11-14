@@ -129,7 +129,7 @@
 // Build number, shown in the main menu. Bump it together with VERSION in sw.js on every push.
 // DEV = the test version on the frontier branch (published at /dev/). It keeps its own saves and settings (keys start with dev_),
 // its own cloud Gist and app icon. When frontier becomes the real game: set DEV=false, restore manifest/icons/sw names, continue BUILD from main.
-const DEV=true,BUILD=3;
+const DEV=true,BUILD=4;
 const KP=DEV?'dev_':'';   // prefix for every localStorage key
 // ================= helpers =================
 const TAU=Math.PI*2;
@@ -308,7 +308,8 @@ const sfx={
   lockOn(){if(thr('lk',200))return;tone(1760,.08,'square',.03);tone(1760,.08,'square',.03,0,.25);tone(2350,.3,'square',.03,0,.5)},
   snipe(){tone(1400,.18,'sawtooth',.08,200);noise(.12,.12,5000)},
   steal(){tone(900,.25,'triangle',.06,300)},
-  jump(){tone(200,1.2,'sine',.14,1600);noise(1,.15,6000)}
+  jump(){tone(200,1.2,'sine',.14,1600);noise(1,.15,6000)},
+  hyper(){tone(55,3.3,'sawtooth',.05,140);tone(110,3.3,'sine',.1,330);tone(220,2.6,'triangle',.03,900,.6);noise(3.2,.09,900);tone(1800,.5,'sine',.06,300,3.0);noise(.6,.25,7000,3.0)}
 };
 // phone vibration (Android browsers; iPhones don't support it). The 📳 button cycles normal → strong → off, saved in orerush_vibe (1/2/0).
 // Tablets default to strong: their motors are weak, so short buzzes can't be felt.
@@ -446,6 +447,9 @@ function weaponDps(id){const L=wl[id];if(L<0)return 0;const s=wstat(id,L),r=S.ra
   return d*(S.dmgMul||1)*(1+OC_WEAPON*(oc['w_'+id]||0))}
 function gearPower(n){return Math.max(...WEAPONS.map(w=>weaponDps(w.id)))/(4.5*(1+n*.045))}
 let QUOTA_K=38;
+const avgOreVal=n=>{const w=typeWeights(n),t=w.reduce((s,x)=>s+x[1],0);return w.reduce((s,[k,v])=>s+TYPES[k].val*v,0)/t};
+// what a rush order pays: about half of a full hold of this sector's ore (no trip to a station needed), plus a small fixed part
+const rushFee=n=>Math.round((cargoCap()*avgOreVal(n)*S.refine*.5+100+n*15)/10)*10;
 function quotaOf(n){const w=typeWeights(n),t=w.reduce((s,x)=>s+x[1],0),avg=w.reduce((s,[k,v])=>s+TYPES[k].val*v,0)/t;
   const pieces=Math.max(55+n*1.6,QUOTA_K*Math.pow(gearPower(n),.85));
   return Math.max(500,Math.round(avg*(S.refine||1)*pieces/50)*50)}
@@ -517,9 +521,9 @@ function briefFor(n){if(BRIEF[n])return BRIEF[n];const m=missionOf(n);
   if(m==='storm')return pick(["Ion storm ahead. Stay inside the safe zone, or risk it for double ore.","The storm is back. Watch the warning rings."]);
   if(m==='lode')return pick(["Another Mother Lode on the scanners. Crack all three shells.","Big rock, big money. Keep the scavengers off the loot."]);
   return pick([`Sector ${n}. Denser field, meaner pirates, bigger paydays. Good hunting.`,`Sector ${n}. Ore prices are up, and so is the pirate traffic. Stay sharp.`,`Sector ${n}. Long-range scans look rich. Don't get greedy out there.`])}
-function objFor(n,loc){const m=loc?loc.mission:missionOf(n),bk=loc&&loc.boss||bossOf(n);return{clear:['☄','MINE THE FIELD','Break every big asteroid and destroy all pirates.'],
+function objFor(n,loc){const m=loc?loc.mission:missionOf(n),bk=loc&&loc.boss||bossOf(n);return{clear:['☄','MINE THE FIELD',`Free mining. The job is done when all pirates are destroyed (or after ${FIELD_ORE} ore if there are none). The exit gate is open the whole time: leave whenever your hold is full.`],
   ambush:['⚔','PIRATE AMBUSH','Destroy all pirates.'],
-  quota:['⏱','ORE QUOTA',`Deliver ${fmt(quotaOf(n))} cr worth of ore in 100 seconds. The ore goes straight to the client (no hold space needed); you are paid about half its value when the order is filled.`],
+  quota:['⏱','ORE QUOTA',`Deliver ${fmt(quotaOf(n))} cr worth of ore in 100 seconds. The ore goes straight to the client (no hold space needed); the job pays ${fmt(rushFee(n))} cr when the order is filled.`],
   defend:['⛨','DEFEND THE RIG',`Keep the mining rig alive for ${defendTime(n)} seconds.`],
   escort:['➜','ESCORT THE HAULER','Get the ore hauler to the jump gate alive.'],
   storm:['ϟ','SURVIVE THE ION STORM',`Stay alive for ${stormTime(n)} seconds. Ore pays double outside the safe zone.`],
@@ -531,6 +535,7 @@ let fr=null,cur=null,inFlight=false,homeLevel=1,exitGate=null;  // galaxy state 
 let oc={},deeds=[],playT=0;  // playT: seconds spent flying sectors (shown in cloud-save questions)
 let state='title',level=1,credits=0,score=0,lives=3,upg={},wl={},weapon='blaster',shipId='prospector',ownedShips=['prospector'],bombs=1,stars={},S={},hull=100,shield=30;
 let ship=null,asteroids=[],bullets=[],ebullets=[],missiles=[],enemies=[],ores=[],pus=[],mines=[],holes=[],blasts=[],arcs=[],parts=[],texts=[],rig=null,beam=null;
+let fieldOre=0,fieldGoal=0;const FIELD_ORE=20;   // asteroid fields without pirates are done after FIELD_ORE pieces of ore
 let clusters=[],WORLD=2000,HALF=1000,cam={x:0,y:0},shake=0,levelTime=0,clearT=-1,failT=-1,failReason='',spawnQ=[],spawnT=0,levelStats=null,nebula=null,planet=null,planetPos={x:.75,y:.28};
 let storm=null,frost=[],lode=null,stolen=0,scavT=0;
 let mission='clear',missionT=0,quota=0,quotaGot=0,refillT=0,banner=null,isTouch=false,best=store.get('orerush_best')||0,shopTab='weapons';
@@ -679,8 +684,8 @@ function storyLoc(n){return{kind:'story',n,mission:missionOf(n),name:'Sector '+n
 function startFlight(loc){cur=loc;if(!inFlight){homeLevel=level;inFlight=true}level=loc.n;startLevel()}
 function endFlight(){if(inFlight){level=homeLevel;inFlight=false}exitGate=null}
 const curBoss=()=>cur&&cur.boss||bossOf(level);
-function openExitGate(){if(!ship)return;const a=Math.atan2(-ship.y,-ship.x)+rand(-.6,.6),d=380,lim=HALF-160;
-  exitGate={x:clamp(ship.x+Math.cos(a)*d,-lim,lim),y:clamp(ship.y+Math.sin(a)*d,-lim,lim),r:48,t:0};addPart({k:'ring',x:exitGate.x,y:exitGate.y,vx:0,vy:0,life:.8,max:.8,size:120,color:'#7fe8ff'})}
+function openExitGate(early){if(!ship||exitGate)return;const a=Math.atan2(-ship.y,-ship.x)+rand(-.6,.6),d=early?520:380,lim=HALF-160;
+  exitGate={x:clamp(ship.x+Math.cos(a)*d,-lim,lim),y:clamp(ship.y+Math.sin(a)*d,-lim,lim),r:48,t:0,hold:0};addPart({k:'ring',x:exitGate.x,y:exitGate.y,vx:0,vy:0,life:.8,max:.8,size:120,color:'#7fe8ff'})}
 function drawExitGate(t){const g=exitGate;ctx.save();ctx.translate(g.x,g.y);ctx.globalCompositeOperation='lighter';drawGlow(0,0,120,'#7fe8ff',.3+.1*Math.sin(t*.006));
   ctx.rotate(t*.0015);ctx.strokeStyle='rgba(127,232,255,.9)';ctx.lineWidth=5;ctx.setLineDash([24,12]);ctx.beginPath();ctx.arc(0,0,58,0,TAU);ctx.stroke();
   ctx.rotate(-t*.003);ctx.strokeStyle='rgba(199,125,255,.7)';ctx.lineWidth=2.5;ctx.setLineDash([10,9]);ctx.beginPath();ctx.arc(0,0,40,0,TAU);ctx.stroke();ctx.setLineDash([]);
@@ -688,8 +693,8 @@ function drawExitGate(t){const g=exitGate;ctx.save();ctx.translate(g.x,g.y);ctx.
 // arrows at the screen edge pointing at what matters right now
 function arrowTargets(){const T=[],near=list=>{let b=null,bd=1e9;for(const o of list){const d=Math.hypot(o.x-ship.x,o.y-ship.y);if(d<bd){bd=d;b=o}}return b};
   if(!ship||ship.dead)return T;
-  if(exitGate){T.push([exitGate,'#7fe8ff','EXIT']);return T}if(clearT>=0||failT>=0)return T;
-  if(mission==='clear'){const g=near(asteroids.filter(a=>a.goal));if(g)T.push([g,'#ffd84a','']);}
+  if(exitGate&&(clearT>=0||holdRoom()<1)){T.push([exitGate,'#7fe8ff','EXIT']);return T}if(clearT>=0||failT>=0)return T;
+  if(exitGate&&mission==='clear')T.push([exitGate,'#5fa8c0','EXIT']);
   if(['clear','ambush','quota','storm','lode'].includes(mission)){const e=near(enemies);if(e)T.push([e,'#ff5a5a',''])}
   if(mission==='boss'){const b=enemies.find(e=>e.boss);if(b)T.push([b,'#ff5a5a','BOSS'])}
   if((mission==='escort'||mission==='defend')&&rig&&!rig.dead)T.push([rig,'#7fe8ff',mission==='escort'?'HAULER':'RIG']);
@@ -851,14 +856,30 @@ function showGalaxy(sel){state='galaxy';genNeighbors(fr.sys);
 function travel(dest){const r=routeTo(dest);if(!r||!r.length)return;if(fr.fuel<r.length)return toast(`Not enough fuel: this trip needs ${r.length}.`);fr.route=r;saveGame();nextHop()}
 function nextHop(){if(!fr.route||!fr.route.length){fr.route=null;return showSystem()}const id=fr.route[0];
   if(fr.fuel<1){fr.route=null;toast('Out of fuel. Journey stopped.');return showSystem()}
-  state='warp';hideOv();warp={t:0,id,stars:Array.from({length:220},()=>({x:rand(-1,1),y:rand(-1,1),z:rand(.05,1)}))};sfx.jump()}
-function updateWarp(dt){warp.t+=dt;for(const s of warp.stars){s.z-=dt*(.25+warp.t*1.6);if(s.z<=.02){s.x=rand(-1,1);s.y=rand(-1,1);s.z=1}}
-  if(warp.t>1.35){const id=warp.id;warp=null;fr.route.shift();if(!fr.route.length)fr.route=null;arriveAt(id)}}
-function drawWarp(){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='rgba(3,4,12,.55)';ctx.fillRect(0,0,SW,SH);const cx=SW/2,cy=SH/2,k=Math.max(SW,SH)*.5,s=getSys(warp.id);
-  ctx.lineCap='round';for(const p of warp.stars){const x=cx+p.x/p.z*k*.3,y=cy+p.y/p.z*k*.3,z2=p.z+.04+warp.t*.05,x2=cx+p.x/z2*k*.3,y2=cy+p.y/z2*k*.3;
-    ctx.strokeStyle=`rgba(${200+55*(1-p.z)|0},${220},255,${Math.min(1,(1-p.z)*1.4)})`;ctx.lineWidth=1+(1-p.z)*2;ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x,y);ctx.stroke()}
-  ctx.globalCompositeOperation='lighter';drawGlow(cx,cy,60+warp.t*90,sunCol(s),.5);if(warp.t>1.1)drawGlow(cx,cy,Math.max(SW,SH)*(warp.t-1.1)*4,'#ffffff',Math.min(1,(warp.t-1.1)*5));ctx.globalCompositeOperation='source-over';
-  ctx.font='700 13px Orbitron';ctx.textAlign='center';ctx.fillStyle='#cfe8ff';ctx.fillText('JUMPING TO '+(fr.visited.includes(warp.id)?s.name.toUpperCase():'UNEXPLORED SYSTEM'),cx,SH*.82)}
+  state='warp';hideOv();warp={t:0,id,from:fr.sys,stars:Array.from({length:170},()=>({x:rand(-1,1),y:rand(-1,1),z:rand(.05,1)}))};sfx.hyper();buzz(30,'warp',500)}
+// hyperjump: ~3.4 s. Spool-up (stars stretch), then a swirling tunnel of light rings that shifts from the old sun's colour
+// to the destination's, with a gentle sway, then a white flash on arrival.
+const WARP_T=3.4;
+function updateWarp(dt){warp.t+=dt;const sp=.25+Math.min(1,warp.t/.9)*2.4-(warp.t>WARP_T-.5?(warp.t-(WARP_T-.5))*2:0);
+  for(const s of warp.stars){s.z-=dt*sp;if(s.z<=.02){s.x=rand(-1,1);s.y=rand(-1,1);s.z=1}}
+  if(warp.t>WARP_T){const id=warp.id;warp=null;fr.route.shift();if(!fr.route.length)fr.route=null;arriveAt(id)}}
+function mixHex(a,b,f){const A=parseInt(a.slice(1),16),B=parseInt(b.slice(1),16),m=(sh)=>Math.round(((A>>sh)&255)*(1-f)+((B>>sh)&255)*f);return '#'+[16,8,0].map(sh=>m(sh).toString(16).padStart(2,'0')).join('')}
+function drawWarp(){const t=warp.t,s=getSys(warp.id),f=clamp((t-.6)/(WARP_T-1.2),0,1),col=mixHex(sunCol(getSys(warp.from)||s),sunCol(s),f),k=Math.max(SW,SH);
+  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='rgba(3,4,14,.5)';ctx.fillRect(0,0,SW,SH);
+  const sway=Math.min(1,t/1.2),cx=SW/2+Math.sin(t*1.7)*SW*.06*sway,cy=SH/2+Math.cos(t*1.3)*SH*.04*sway,tun=clamp((t-.5)/.6,0,1)*clamp((WARP_T-.25-t)/.4,0,1);
+  // tunnel rings: wobbly ellipses rushing towards you
+  ctx.globalCompositeOperation='lighter';ctx.lineWidth=2;
+  if(tun>0)for(let i=0;i<16;i++){const d=((i/16)-(t*.55))%1,dd=d<0?d+1:d,r=k*.06/(dd*.92+.08),a=tun*Math.min(1,(1-dd)*1.6)*(.5-dd*.35);if(r>k*1.6)continue;
+    const ph=t*2.2+i*.7,wob=.1+.08*Math.sin(t*1.1+i);ctx.strokeStyle=hexA(i%3?col:'#bfe8ff',a);ctx.beginPath();
+    for(let j=0;j<=40;j++){const an=j/40*TAU,rr=r*(1+wob*Math.sin(an*3+ph)+.05*Math.sin(an*7-ph*1.6)),x=cx+Math.cos(an+t*.6)*rr*1.15,y=cy+Math.sin(an+t*.6)*rr*.85;j?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke()}
+  // star streaks
+  ctx.lineCap='round';const st=Math.min(1,t/.9);for(const p of warp.stars){const x=cx+p.x/p.z*k*.15,y=cy+p.y/p.z*k*.15,z2=p.z+.03+st*.12,x2=cx+p.x/z2*k*.15,y2=cy+p.y/z2*k*.15;
+    ctx.strokeStyle=hexA(Math.random()<.3?col:'#e8f4ff',Math.min(1,(1-p.z)*1.3));ctx.lineWidth=.8+(1-p.z)*2.2;ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x,y);ctx.stroke()}
+  drawGlow(cx,cy,70+Math.sin(t*3)*12+t*30,col,.55);
+  if(t>WARP_T-.35)drawGlow(SW/2,SH/2,k*(t-(WARP_T-.35))*6,'#ffffff',Math.min(1,(t-(WARP_T-.35))*4));ctx.globalCompositeOperation='source-over';
+  ctx.font='700 13px Orbitron';ctx.textAlign='center';ctx.fillStyle='#cfe8ff';ctx.globalAlpha=Math.min(1,t*2);
+  ctx.fillText('JUMPING TO '+(fr.visited.includes(warp.id)?s.name.toUpperCase():'UNEXPLORED SYSTEM'),SW/2,SH*.84);
+  ctx.font='600 11px Orbitron';ctx.fillStyle='#7fa8c8';ctx.fillText(fr.route&&fr.route.length>1?`${fr.route.length-1} more jump${fr.route.length>2?'s':''} after this`:'',SW/2,SH*.84+18);ctx.globalAlpha=1}
 let eventRoll=()=>Math.random();   // jump events: <.18 ambush, <.30 wreck (a separate function so tests can steer it)
 function arriveAt(id){fr.fuel--;fr.day++;for(const s of Object.values(fr.sat))for(const k in s){s[k]*=.7;if(s[k]<.5)delete s[k]}
   const first=!fr.visited.includes(id);fr.sys=id;if(first)fr.visited.push(id);genNeighbors(id);saveGame();
@@ -877,6 +898,8 @@ function arriveAt(id){fr.fuel--;fr.day++;for(const s of Object.values(fr.sat))fo
 // decorative field behind the map screens, in the system's colours
 function setupFieldPreview(s){const n=HOME[s.id]?s.r*10+3:LAST_SECTOR+1;setupField(n,false)}
 function findLoc(code){const[k,v]=code.split(':');if(k==='story')return storyLoc(+v);return sideJobs(fr.sys).find(j=>j.id===v)}
+// leaving through the exit gate before the job is done: keep the ore, no reward, no story progress
+function leaveEarly(){laserSound(false);endFlight();cur=null;saveGame();showStation();toast('You left the field. Your ore is in the hold.')}
 const FR_ACT={
   dock:()=>showStation(),undock:()=>showSystem(),sysmap:()=>showSystem(),galaxy:()=>showGalaxy(),
   travel:D=>travel(D.id),contjourney:()=>nextHop(),
@@ -953,7 +976,7 @@ function setupField(n,withShip){
   else if(mission==='ambush'){big=2;med=3}
   else{big=n<=10?Math.min(13,3+Math.floor(n*.95)):Math.min(16,7+Math.floor(n*.35));med=Math.min(8,Math.floor(n/2))}
   if(mission!=='boss'&&mission!=='ambush'){big=Math.round(big*sc);med=Math.round(med*sc)}
-  for(let i=0;i<big;i++){const a=spawnRandomAsteroid(3);if(mission==='clear'&&withShip)a.goal=true}for(let i=0;i<med;i++)spawnRandomAsteroid(2);
+  for(let i=0;i<big;i++)spawnRandomAsteroid(3);for(let i=0;i<med;i++)spawnRandomAsteroid(2);
   if(n>=3&&Math.random()<.65||n>=15){const[x,y]=randomSpot(400);asteroids.push(makeAsteroid(x,y,1,'gold',rand(-30,30),rand(-30,30),'cache'))}
   const epath=mission==='escort'?escortPath():null,offPath=(x,y)=>!epath||epath.every((q,i)=>!i||segDist(x,y,epath[i-1][0],epath[i-1][1],q[0],q[1])>380);
   const nh=n>=21?2:n>=13?1:0;for(let i=0;i<nh;i++){let x,y,t=0;do{[x,y]=randomSpot(560);t++}while((holes.some(h=>Math.hypot(h.x-x,h.y-y)<700)||!offPath(x,y))&&t<40);holes.push({x,y,core:30,range:430,rot:rand(0,TAU)})}
@@ -974,7 +997,8 @@ function setupField(n,withShip){
   }
   ship=withShip?{x:0,y:mission==='defend'?150:0,vx:0,vy:0,a:-Math.PI/2,thrusting:false,fireT:0,missT:1.5,inv:2,dead:false,respawn:0,lastHit:9,contactT:0,shieldFlash:0,
     pu:{rapid:0,over:0,magnet:0,double:0},chill:0,combo:0,comboT:0,wings:[{x:0,y:0,fireT:.5},{x:0,y:0,fireT:.8}]}:null;
-  if(ship)[ship.x,ship.y]=spawnPos();cam.x=ship?ship.x:0;cam.y=ship?ship.y:0;levelTime=0;clearT=-1;exitGate=null;failT=-1;shake=0;banner=null}
+  if(ship)[ship.x,ship.y]=spawnPos();cam.x=ship?ship.x:0;cam.y=ship?ship.y:0;levelTime=0;clearT=-1;exitGate=null;fieldOre=0;fieldGoal=withShip&&mission==='clear'&&!spawnQ.length?FIELD_ORE:0;
+  if(withShip&&mission==='clear')openExitGate(true);failT=-1;shake=0;banner=null}
 
 function segDist(px,py,ax,ay,bx,by){const vx=bx-ax,vy=by-ay,l2=vx*vx+vy*vy||1,t=clamp(((px-ax)*vx+(py-ay)*vy)/l2,0,1);return Math.hypot(px-ax-vx*t,py-ay-vy*t)}
 // escort route: from one side of the field to a jump gate on the other, with two bends
@@ -1261,7 +1285,10 @@ function update(dt){
     p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.t>18&&!vac)p.dead=true}
   pus=pus.filter(p=>!p.dead);
   // end conditions
-  if(playing){if(clearT>=0){clearT+=dt;if(exitGate){exitGate.t+=dt;if(ship&&!ship.dead&&Math.hypot(ship.x-exitGate.x,ship.y-exitGate.y)<exitGate.r+S.r){pus.forEach(collectPU);pus=[];sfx.jump();endLevel()}}}
+  if(playing&&exitGate){exitGate.t+=dt;const inGate=ship&&!ship.dead&&Math.hypot(ship.x-exitGate.x,ship.y-exitGate.y)<exitGate.r+S.r;
+    if(inGate&&clearT>=0&&failT<0){pus.forEach(collectPU);pus=[];sfx.jump();endLevel();return}
+    if(inGate&&clearT<0&&failT<0){exitGate.hold+=dt;if(exitGate.hold>1.4){sfx.jump();leaveEarly();return}}else exitGate.hold=0}
+  if(playing){if(clearT>=0){clearT+=dt}
     if(failT>=0){failT+=dt;if(failT>2.2)showFail()}}
 }
 function plasmaBurst(b){explode(b.x,b.y,b.rad*.45,'#9dff5a');addPart({k:'ring',x:b.x,y:b.y,vx:0,vy:0,life:.4,max:.4,size:b.rad,color:'#9dff5a'});
@@ -1273,7 +1300,7 @@ function collectOre(o){const T=TYPES[o.type];let mult=1;
   if(ship){ship.combo=ship.comboT>0?ship.combo+1:1;ship.comboT=1.6;mult=1+Math.min(2,Math.floor(ship.combo/8)*.25);if(ship.pu.double>0)mult*=2;if(storm&&storm.out)mult*=2}
   const v=Math.round(T.val*S.refine*mult),cash=mission==='quota';
   if(!cash)fr.cargo[o.type]=(fr.cargo[o.type]||0)+Math.min(mult,Math.max(0,holdRoom()));   // rush order: the ore goes straight to the client
-  if(levelStats){levelStats.earned+=v;levelStats.ore[o.type]++;levelStats.oreVal[o.type]+=v}if(mission==='quota'&&state==='play')quotaGot+=v;
+  fieldOre++;if(levelStats){levelStats.earned+=v;levelStats.ore[o.type]++;levelStats.oreVal[o.type]+=v}if(mission==='quota'&&state==='play')quotaGot+=v;
   floatText(o.x,o.y,cash?'+'+v:'+'+T.name,T.ore,cash?15:12);sfx.pick();addPart({k:'flash',x:o.x,y:o.y,vx:0,vy:0,life:.2,max:.2,size:22,color:T.ore})}
 function collectPU(p){const P=PU[p.type];sfx.pu();if(!ship)return;
   if(p.type==='shield'){shield=S.shieldMax;hull=Math.min(S.hullMax,hull+S.hullMax*.15);ship.shieldFlash=1}
@@ -1291,7 +1318,7 @@ function updateMission(dt){const n=level;
   if(clearT>=0||failT>=0)return;
   if(mission==='clear'||mission==='boss'){
     const bossAlive=enemies.some(e=>e.boss);
-    if(mission==='boss'?(!bossAlive&&enemies.length===0):(!asteroids.some(a=>a.goal)&&enemies.length===0&&spawnQ.length===0)){if(ship&&!ship.dead)winLevel()}}
+    if(mission==='boss'?(!bossAlive&&enemies.length===0):(enemies.length===0&&spawnQ.length===0&&fieldOre>=fieldGoal)){if(ship&&!ship.dead)winLevel()}}
   else if(mission==='ambush'){if(enemies.length===0&&spawnQ.length===0&&ship&&!ship.dead)winLevel()}
   else if(mission==='quota'){missionT-=dt;refillT-=dt;
     if(refillT<=0&&asteroids.filter(a=>a.tier>=2).length<7){refillT=1.2;spawnRandomAsteroid(3,true)}
@@ -1631,7 +1658,7 @@ function drawHUD(t){const m=12,small=SW<500,w=small?132:184;
   bar(m,m+60,w,12,shield/S.shieldMax,'#1e8fd8','#5ef0ff','SHIELD');
   for(let i=0;i<lives;i++){ctx.save();ctx.translate(m+8+i*18,m+88);ctx.rotate(-Math.PI/2);ctx.fillStyle='#c8d3e2';ctx.beginPath();ctx.moveTo(8,0);ctx.lineTo(-6,-6);ctx.lineTo(-3,0);ctx.lineTo(-6,6);ctx.closePath();ctx.fill();ctx.restore()}
   // mission line
-  let ml='';if(mission==='clear')ml=`Big rocks ${asteroids.filter(a=>a.goal).length}${enemies.length||spawnQ.length?' · Hostiles '+(enemies.length+spawnQ.length):''}`;
+  let ml='';if(mission==='clear')ml=clearT>=0?'Job done · mine on or leave':fieldGoal?`Collect ore ${Math.min(fieldOre,fieldGoal)} / ${fieldGoal}`:`Hostiles ${enemies.length+spawnQ.length} · exit gate open`;
   else if(mission==='ambush')ml=`Pirate ambush · Hostiles ${enemies.length+spawnQ.length}`;
   else if(mission==='quota')ml=`Quota ${fmt(Math.min(quotaGot,quota))} / ${fmt(quota)} · ${mmss(missionT)}`;
   else if(mission==='defend')ml=`Protect the rig · ${mmss(missionT)}`;
@@ -1639,7 +1666,8 @@ function drawHUD(t){const m=12,small=SW<500,w=small?132:184;
   else if(mission==='storm')ml=`Survive the storm · ${mmss(missionT)}`;
   else if(mission==='lode')ml=lode&&!lode.dead?`Mother Lode · shell ${lode.layer+1} of 3${stolen?' · stolen '+stolen:''}`:'Mother Lode cracked';
   else ml='Destroy the '+BOSS_NAME[curBoss()].toLowerCase();
-  if(exitGate)ml='Fly into the exit gate to leave';
+  if(exitGate&&clearT>=0&&mission!=='clear')ml='Fly into the exit gate to leave';
+  if(exitGate&&exitGate.hold>0&&clearT<0)ml=`Leaving early… (no reward)`;
   const timed=mission==='quota'||mission==='defend'||mission==='storm',hasBar=timed||mission==='escort'||mission==='lode';
   ctx.font=`600 ${small?11:12}px "Exo 2"`;ctx.fillStyle=timed&&missionT<10?'#ff7a5a':'#cfe0f5';ctx.fillText(ml,m,m+110);
   if(mission==='escort'&&rig){bar(m,m+116,w,6,rig.hp/rig.maxhp,'#2fc6e0','#8ff8ff','')}
@@ -1661,7 +1689,6 @@ function drawHUD(t){const m=12,small=SW<500,w=small?132:184;
   if(rig&&rig.hauler){const g=rig.path[rig.path.length-1],[gx,gy]=P(g[0],g[1]);ctx.strokeStyle='#7fe8ff';ctx.beginPath();ctx.arc(gx,gy,4,0,TAU);ctx.stroke()}
   if(rig&&!rig.dead){const[x,y]=P(rig.x,rig.y);ctx.fillStyle=rig.hauler?'#7fe8ff':'#ffc845';ctx.fillRect(x-3,y-3,6,6)}
   if(exitGate){const[x,y]=P(exitGate.x,exitGate.y);ctx.strokeStyle='#7fe8ff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,5,0,TAU);ctx.stroke();ctx.lineWidth=1}
-  for(const a of asteroids){if(a.goal){const[x,y]=P(a.x,a.y);ctx.strokeStyle='rgba(255,216,74,.8)';ctx.strokeRect(x-3,y-3,6,6)}}
   for(const a of asteroids){const[x,y]=P(a.x,a.y);ctx.fillStyle=a.kind==='volatile'?'#ff3b1f':a.kind==='cache'?'#ffd84a':TYPES[a.type].vein||'#9a948d';const s=a.kind==='lode'?a.r*k*1.6:a.kind==='cache'?3:a.tier*1.4;ctx.fillRect(x-s/2,y-s/2,s,s)}
   for(const o of ores){const[x,y]=P(o.x,o.y);ctx.fillStyle=TYPES[o.type].ore;ctx.fillRect(x-.5,y-.5,1.2,1.2)}
   for(const p of pus){const[x,y]=P(p.x,p.y);ctx.fillStyle=PU[p.type].c;ctx.fillRect(x-1.5,y-1.5,3,3)}
@@ -1732,7 +1759,7 @@ function showBrief(loc){loc=loc||storyLoc(homeProgress());state='brief';const n=
   <div class="help">After the job, an exit gate opens. Fly into it to leave. Leftover ore is yours if you grab it first.</div>`)}
 function endLevel(){state='summary';const st=levelStats,n=level,loc=cur||storyLoc(n),story=loc.kind==='story';let star=1;if(st.deaths===0)star++;if(!st.damaged)star++;
   const starBonus=story?(star-1)*15*n:0;let missionBonus=0;
-  if(mission==='quota')missionBonus=Math.round(quota*RUSH_PAY)+150+n*20+Math.round(missionT*5);if(mission==='defend')missionBonus=Math.round((200+n*25)*(.5+.5*rig.hp/rig.maxhp));
+  if(mission==='quota')missionBonus=rushFee(n)+Math.round(missionT*2);if(mission==='defend')missionBonus=Math.round((200+n*25)*(.5+.5*rig.hp/rig.maxhp));
   if(mission==='escort')missionBonus=Math.round((260+n*30)*(.5+.5*rig.hp/rig.maxhp));if(mission==='storm')missionBonus=180+n*24;if(mission==='lode')missionBonus=120+n*18;
   if(mission==='ambush')missionBonus=100+n*15;
   const firstClear=story&&n===homeLevel,sectorReward=firstClear?60+n*30:0;
@@ -1758,7 +1785,7 @@ function endLevel(){state='summary';const st=levelStats,n=level,loc=cur||storyLo
   ${stolen?`<span>Ore stolen by scavengers</span><span class="v" style="color:#ff7a5a">${stolen}</span>`:''}
   <span>Asteroids broken</span><span class="v">${st.rocks}</span>${st.kills?`<span>Pirates destroyed</span><span class="v">${st.kills}</span>`:''}</div>
   <div class="btns"><button class="btn" data-act="sysmap">Back to the system map</button></div>`)}
-function showFail(){state='failed';const loc=cur,part=mission==='quota'?Math.round(quotaGot*RUSH_PARTIAL):0;credits+=part;score+=part;endFlight();saveGame();
+function showFail(){state='failed';const loc=cur,part=mission==='quota'?Math.round(rushFee(level)*clamp(quotaGot/quota,0,1)*RUSH_PARTIAL):0;credits+=part;score+=part;endFlight();saveGame();
   showOv(`<h2 style="color:#ff7a5a">${loc&&loc.kind!=='story'?'Job failed':'Sector '+(loc?loc.n:level)+' failed'}</h2><p>${failReason} ${part?`The client pays ${fmt(part)} cr for what you delivered.`:'You keep the ore in your hold.'}</p>
   <div class="btns"><button class="btn" data-act="retry">Try again</button><button class="btn alt" data-act="sysmap">Back to the system map</button></div>`);SY.retry=loc}
 function saveGameKeepLevel(){saveGame()}

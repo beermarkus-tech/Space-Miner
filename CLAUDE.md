@@ -23,7 +23,9 @@ in the browser and on his phone, so keep changes playable and explain them in pl
 - Frontier section `// === frontier`: `HOME_SYS` (the hand-made systems), generated systems in `fr.gen` (`genNeighbors`), `fr` state in the save
   (sys, day, fuel, cargo, known prices, saturation, gen, links, visited, seed). Flights: `cur` = location, `startFlight/endFlight`; while flying
   `level` is the flight difficulty and `homeLevel` the campaign progress. Pause → "Return to the station" ends a flight keeping the hold.
-  Rush orders (quota): ore goes to the client, not the hold; one payment at the end (`RUSH_PAY` × order, `RUSH_PARTIAL` × delivered on failure). Markets: `priceOf`, `sellOre`, `sysEvent`. Screens: `showStation`,
+  Rush orders (quota): ore goes to the client, not the hold; pays `rushFee(n)` (≈ half a full hold of that sector's ore) when filled,
+  `RUSH_PARTIAL` of it × share delivered on failure. Asteroid fields (`clear`): exit gate open from the start (stay 1.4 s in it to leave early,
+  `leaveEarly`); done when all pirates are destroyed, or after `FIELD_ORE` ore in fields without pirates. Hyperjump lasts `WARP_T` s. Markets: `priceOf`, `sellOre`, `sysEvent`. Screens: `showStation`,
   `showSystem`, `showGalaxy`; actions in `FR_ACT`. After a win an `exitGate` opens; flying into it ends the flight.
 - Tests: `node tests/sync-test.js` (cloud sync). Gameplay checks are ad-hoc Playwright scripts.
 
