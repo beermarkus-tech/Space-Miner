@@ -34,6 +34,7 @@
   .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:10;padding:14px;
     background:radial-gradient(ellipse at center,rgba(3,5,14,.35),rgba(3,5,14,.82))}
   .ov.show{display:flex}
+  .panel.wide{width:min(1180px,100%)}
   .panel{width:min(680px,100%);max-height:calc(100% - 8px);overflow:auto;background:var(--panel);border:1px solid var(--line);
     border-radius:18px;padding:20px 20px 18px;box-shadow:0 0 0 1px rgba(255,255,255,.03) inset,0 20px 60px rgba(0,0,0,.6),0 0 40px rgba(94,240,255,.08);
     backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);touch-action:pan-y}
@@ -128,7 +129,7 @@
 // Build number, shown in the main menu. Bump it together with VERSION in sw.js on every push.
 // DEV = the test version on the frontier branch (published at /dev/). It keeps its own saves and settings (keys start with dev_),
 // its own cloud Gist and app icon. When frontier becomes the real game: set DEV=false, restore manifest/icons/sw names, continue BUILD from main.
-const DEV=true,BUILD=2;
+const DEV=true,BUILD=3;
 const KP=DEV?'dev_':'';   // prefix for every localStorage key
 // ================= helpers =================
 const TAU=Math.PI*2;
@@ -449,6 +450,7 @@ function quotaOf(n){const w=typeWeights(n),t=w.reduce((s,x)=>s+x[1],0),avg=w.red
   const pieces=Math.max(55+n*1.6,QUOTA_K*Math.pow(gearPower(n),.85));
   return Math.max(500,Math.round(avg*(S.refine||1)*pieces/50)*50)}
 const defendTime=n=>65+Math.min(35,n);
+const RUSH_PAY=.5,RUSH_PARTIAL=.25;   // rush orders pay this share of the order value (or of what was delivered, if it fails)
 const stormTime=n=>70+Math.min(20,Math.floor(n/2));
 const escortTime=n=>80+Math.min(20,Math.floor(n/2));
 // ---- economy ----
@@ -517,7 +519,7 @@ function briefFor(n){if(BRIEF[n])return BRIEF[n];const m=missionOf(n);
   return pick([`Sector ${n}. Denser field, meaner pirates, bigger paydays. Good hunting.`,`Sector ${n}. Ore prices are up, and so is the pirate traffic. Stay sharp.`,`Sector ${n}. Long-range scans look rich. Don't get greedy out there.`])}
 function objFor(n,loc){const m=loc?loc.mission:missionOf(n),bk=loc&&loc.boss||bossOf(n);return{clear:['☄','MINE THE FIELD','Break every big asteroid and destroy all pirates.'],
   ambush:['⚔','PIRATE AMBUSH','Destroy all pirates.'],
-  quota:['⏱','ORE QUOTA',`Collect ${fmt(quotaOf(n))} cr of ore in 100 seconds. Rush orders pay cash on the spot.`],
+  quota:['⏱','ORE QUOTA',`Deliver ${fmt(quotaOf(n))} cr worth of ore in 100 seconds. The ore goes straight to the client (no hold space needed); you are paid about half its value when the order is filled.`],
   defend:['⛨','DEFEND THE RIG',`Keep the mining rig alive for ${defendTime(n)} seconds.`],
   escort:['➜','ESCORT THE HAULER','Get the ore hauler to the jump gate alive.'],
   storm:['ϟ','SURVIVE THE ION STORM',`Stay alive for ${stormTime(n)} seconds. Ore pays double outside the safe zone.`],
@@ -745,7 +747,7 @@ function showSystem(){state='sysmap';const id=fr.sys,s=getSys(id),p=homeProgress
 // ---- star map (Galaxy-on-Fire style): drag to move, pinch / wheel to zoom, tap a system for details and a route ----
 // Fog of war: only visited systems and their direct neighbours are shown; everything else hides behind nebula fog,
 // with faint lights shining through so you can tell how big the galaxy is.
-const GMAP_BOUNDS={x0:-20,y0:-18,x1:210,y1:82},GPX=8;   // background canvases: galaxy units × GPX pixels
+const GMAP_BOUNDS={x0:-70,y0:-45,x1:230,y1:110},GPX=7;   // background canvases: galaxy units × GPX pixels
 let gmap=null,gmapBg=null,gmapFogKey='',gmapFog=null,warp=null;
 const knownSys=()=>{const k=new Set(fr.visited);for(const v of fr.visited)for(const l of sysLinks(v))if(getSys(l))k.add(l);return k};
 const allSys=()=>[...HOME_SYS,...Object.values(fr.gen)];
@@ -774,7 +776,7 @@ function gmapFogLayer(){const key=fr.visited.join()+'|'+[...knownSys()].join();i
     gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(x-r,y-r,2*r,2*r)};
   const known=knownSys();for(const id of known)hole(getSys(id),fr.visited.includes(id)?17:9);g.globalCompositeOperation='source-over';return gmapFog=c}
 const sunCol=s=>(SUN[(s.look||{}).sun]||SUN.yellow).g;
-function gmapDraw(t){if(!gmap||!gmap.cv.isConnected)return false;const{cv,cx,cy,z}=gmap,g=gmap.g,W=cv.width/DPR,H=cv.height/DPR,u=W/70*z;
+function gmapDraw(t){if(!gmap||!gmap.cv.isConnected)return false;const{cv,cx,cy,z}=gmap,g=gmap.g,W=cv.width/DPR,H=cv.height/DPR,u=gmapUnit();
   g.setTransform(DPR,0,0,DPR,0,0);g.fillStyle='#04060d';g.fillRect(0,0,W,H);const P=(x,y)=>[W/2+(x-cx)*u,H/2+(y-cy)*u],B=GMAP_BOUNDS;
   const[bx,by]=P(B.x0,B.y0);g.drawImage(gmapBackground(),bx,by,(B.x1-B.x0)*u,(B.y1-B.y0)*u);
   // faint hex grid
@@ -807,6 +809,7 @@ function gmapDraw(t){if(!gmap||!gmap.cv.isConnected)return false;const{cv,cx,cy,
     const label=(vis?(s.icon?s.icon+' ':'')+s.name:'Unexplored')+(open?'':' 🔒');g.fillText(label,x,y+box+fs+2)}
   return true}
 const PHANTOM_COL=['#9fc8ff','#ffd8a0','#ffb0c0','#c8b0ff','#a0ffe0','#fff0c0'];
+function gmapUnit(){const r=gmap.cv.getBoundingClientRect();return Math.min(r.width,r.height)/42*gmap.z}
 function gmapLoop(t){if(state!=='galaxy'||!gmapDraw(t)){gmap&&(gmap.raf=0);return}gmap.raf=requestAnimationFrame(gmapLoop)}
 function gmapInfo(){const el=document.getElementById('gInfo');if(!el||!gmap)return;const id=gmap.sel||fr.sys,s=getSys(id),vis=fr.visited.includes(id),here=id===fr.sys,kn=fr.known[id];
   let pays='',cheap='';if(kn){const r=TYPE_KEYS.map(k=>[k,kn.p[k]/TYPES[k].val]).sort((a,b)=>b[1]-a[1]);pays=r.slice(0,3).map(([k])=>TYPES[k].name).join(', ');cheap=r.slice(-2).map(([k])=>TYPES[k].name).join(', ')}
@@ -824,19 +827,20 @@ function showGalaxy(sel){state='galaxy';genNeighbors(fr.sys);
     <canvas id="gmapCv" class="gmap"></canvas><div class="help" style="margin:4px 0 0">Drag to move · pinch or scroll to zoom · tap a system</div><div id="gInfo"></div>
     ${!frontierOpen()?'<div class="help">Beat each system’s boss to open the way onward. The fog hides much more: past the Frozen Halo the galaxy goes on forever.</div>':''}
     <div class="btns"><button class="btn alt" data-act="sysmap">Back</button></div>`);
-  const cv=document.getElementById('gmapCv'),W=cv.clientWidth,H=Math.round(clamp(innerHeight*.5,260,460));cv.style.height=H+'px';cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
-  const s=getSys(fr.sys);if(gmap&&gmap.raf)cancelAnimationFrame(gmap.raf);gmap={cv,g:cv.getContext('2d'),cx:s.x,cy:s.y,z:gmap?gmap.z:1.6,sel:sel||null,ptrs:new Map(),raf:0};
+  ov.querySelector('.panel').classList.add('wide');
+  const cv=document.getElementById('gmapCv'),W=cv.clientWidth,H=Math.round(clamp(innerHeight*(innerWidth>=700?.66:.5),260,1000));cv.style.height=H+'px';cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+  const s=getSys(fr.sys);if(gmap&&gmap.raf)cancelAnimationFrame(gmap.raf);gmap={cv,g:cv.getContext('2d'),cx:s.x,cy:s.y,z:gmap?gmap.z:1,sel:sel||null,ptrs:new Map(),raf:0};
   const ptr=new Map();let down=null,pinch=null;
-  const toWorld=(px,py)=>{const r=cv.getBoundingClientRect(),u=r.width/70*gmap.z;return[gmap.cx+(px-r.left-r.width/2)/u,gmap.cy+(py-r.top-r.height/2)/u]};
-  const zoomAt=(px,py,f)=>{const[wx,wy]=toWorld(px,py);gmap.z=clamp(gmap.z*f,.8,4);const[wx2,wy2]=toWorld(px,py);gmap.cx+=wx-wx2;gmap.cy+=wy-wy2;clampView()};
+  const toWorld=(px,py)=>{const r=cv.getBoundingClientRect(),u=gmapUnit();return[gmap.cx+(px-r.left-r.width/2)/u,gmap.cy+(py-r.top-r.height/2)/u]};
+  const zoomAt=(px,py,f)=>{const[wx,wy]=toWorld(px,py);gmap.z=clamp(gmap.z*f,.5,3);const[wx2,wy2]=toWorld(px,py);gmap.cx+=wx-wx2;gmap.cy+=wy-wy2;clampView()};
   const clampView=()=>{const B=GMAP_BOUNDS;gmap.cx=clamp(gmap.cx,B.x0+10,B.x1-10);gmap.cy=clamp(gmap.cy,B.y0+8,B.y1-8)};
   cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(ptr.size===1)down={x:e.clientX,y:e.clientY,t:performance.now(),moved:0};if(ptr.size===2){const[a,b]=[...ptr.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y)};down=null}});
   cv.addEventListener('pointermove',e=>{if(!ptr.has(e.pointerId))return;const p=ptr.get(e.pointerId),dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
-    if(ptr.size===1){const u=cv.getBoundingClientRect().width/70*gmap.z;gmap.cx-=dx/u;gmap.cy-=dy/u;clampView();if(down)down.moved+=Math.abs(dx)+Math.abs(dy)}
+    if(ptr.size===1){const u=gmapUnit();gmap.cx-=dx/u;gmap.cy-=dy/u;clampView();if(down)down.moved+=Math.abs(dx)+Math.abs(dy)}
     else if(ptr.size===2&&pinch){const[a,b]=[...ptr.values()],d=Math.hypot(a.x-b.x,a.y-b.y);zoomAt((a.x+b.x)/2,(a.y+b.y)/2,d/pinch.d);pinch.d=d}});
   const up=e=>{if(!ptr.has(e.pointerId))return;ptr.delete(e.pointerId);if(ptr.size<2)pinch=null;
-    if(down&&ptr.size===0&&down.moved<10&&performance.now()-down.t<500){const[wx,wy]=toWorld(e.clientX,e.clientY),u=cv.getBoundingClientRect().width/70*gmap.z;let best=null,bd=26/u;
+    if(down&&ptr.size===0&&down.moved<10&&performance.now()-down.t<500){const[wx,wy]=toWorld(e.clientX,e.clientY),u=gmapUnit();let best=null,bd=26/u;
       for(const id of knownSys()){const s=getSys(id),d=Math.hypot(s.x-wx,s.y-wy);if(d<bd){bd=d;best=id}}if(best){gmap.sel=best;sfx.click();gmapInfo()}}
     if(ptr.size===0)down=null};
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
@@ -1268,8 +1272,8 @@ function plasmaBurst(b){explode(b.x,b.y,b.rad*.45,'#9dff5a');addPart({k:'ring',x
 function collectOre(o){const T=TYPES[o.type];let mult=1;
   if(ship){ship.combo=ship.comboT>0?ship.combo+1:1;ship.comboT=1.6;mult=1+Math.min(2,Math.floor(ship.combo/8)*.25);if(ship.pu.double>0)mult*=2;if(storm&&storm.out)mult*=2}
   const v=Math.round(T.val*S.refine*mult),cash=mission==='quota';
-  if(cash){credits+=v;score+=v}else fr.cargo[o.type]=(fr.cargo[o.type]||0)+Math.min(mult,Math.max(0,holdRoom()));
-  if(levelStats){levelStats.earned+=v;levelStats.ore[o.type]++;levelStats.oreVal[o.type]+=v;if(cash)levelStats.cash+=v}if(mission==='quota'&&state==='play')quotaGot+=v;
+  if(!cash)fr.cargo[o.type]=(fr.cargo[o.type]||0)+Math.min(mult,Math.max(0,holdRoom()));   // rush order: the ore goes straight to the client
+  if(levelStats){levelStats.earned+=v;levelStats.ore[o.type]++;levelStats.oreVal[o.type]+=v}if(mission==='quota'&&state==='play')quotaGot+=v;
   floatText(o.x,o.y,cash?'+'+v:'+'+T.name,T.ore,cash?15:12);sfx.pick();addPart({k:'flash',x:o.x,y:o.y,vx:0,vy:0,life:.2,max:.2,size:22,color:T.ore})}
 function collectPU(p){const P=PU[p.type];sfx.pu();if(!ship)return;
   if(p.type==='shield'){shield=S.shieldMax;hull=Math.min(S.hullMax,hull+S.hullMax*.15);ship.shieldFlash=1}
@@ -1728,14 +1732,14 @@ function showBrief(loc){loc=loc||storyLoc(homeProgress());state='brief';const n=
   <div class="help">After the job, an exit gate opens. Fly into it to leave. Leftover ore is yours if you grab it first.</div>`)}
 function endLevel(){state='summary';const st=levelStats,n=level,loc=cur||storyLoc(n),story=loc.kind==='story';let star=1;if(st.deaths===0)star++;if(!st.damaged)star++;
   const starBonus=story?(star-1)*15*n:0;let missionBonus=0;
-  if(mission==='quota')missionBonus=150+n*20+Math.round(missionT*5);if(mission==='defend')missionBonus=Math.round((200+n*25)*(.5+.5*rig.hp/rig.maxhp));
+  if(mission==='quota')missionBonus=Math.round(quota*RUSH_PAY)+150+n*20+Math.round(missionT*5);if(mission==='defend')missionBonus=Math.round((200+n*25)*(.5+.5*rig.hp/rig.maxhp));
   if(mission==='escort')missionBonus=Math.round((260+n*30)*(.5+.5*rig.hp/rig.maxhp));if(mission==='storm')missionBonus=180+n*24;if(mission==='lode')missionBonus=120+n*18;
   if(mission==='ambush')missionBonus=100+n*15;
   const firstClear=story&&n===homeLevel,sectorReward=firstClear?60+n*30:0;
   credits+=starBonus+missionBonus+sectorReward;score+=starBonus+missionBonus+sectorReward;
   const finale=firstClear&&n===LAST_SECTOR,mid=firstClear&&n===30,gate=firstClear&&n%10===0&&n<LAST_SECTOR;
   if(story)stars[n]=Math.max(stars[n]||0,star);
-  const rows=TYPE_KEYS.filter(k=>st.ore[k]).map(k=>`<span><i class="dot" style="background:${TYPES[k].ore};box-shadow:0 0 8px ${TYPES[k].ore}"></i>${TYPES[k].name} × ${st.ore[k]}</span><span class="v">${mission==='quota'?fmt(st.oreVal[k])+' cr':'in hold'}</span>`).join('');
+  const rows=TYPE_KEYS.filter(k=>st.ore[k]).map(k=>`<span><i class="dot" style="background:${TYPES[k].ore};box-shadow:0 0 8px ${TYPES[k].ore}"></i>${TYPES[k].name} × ${st.ore[k]}</span><span class="v">${mission==='quota'?'delivered':'in hold'}</span>`).join('');
   const kind=loc.kind;endFlight();if(firstClear)level=n+1;cur=null;saveGame();if(story)for(let i=0;i<star;i++)sfx.star(i);
   const next=gate?STORY_SYS[n/10]:null,opened=firstClear?HOME_SYS.filter(o=>!o.story&&o.unlock===n+1):[];
   showOv(`<div class="kicker">${getSys(fr.sys).name.toUpperCase()}</div><h2>${story?'Sector '+n+' complete':kind==='ambush'?'Ambush repelled':'Job done'}</h2>
@@ -1754,8 +1758,8 @@ function endLevel(){state='summary';const st=levelStats,n=level,loc=cur||storyLo
   ${stolen?`<span>Ore stolen by scavengers</span><span class="v" style="color:#ff7a5a">${stolen}</span>`:''}
   <span>Asteroids broken</span><span class="v">${st.rocks}</span>${st.kills?`<span>Pirates destroyed</span><span class="v">${st.kills}</span>`:''}</div>
   <div class="btns"><button class="btn" data-act="sysmap">Back to the system map</button></div>`)}
-function showFail(){state='failed';const loc=cur;endFlight();saveGame();
-  showOv(`<h2 style="color:#ff7a5a">${loc&&loc.kind!=='story'?'Job failed':'Sector '+(loc?loc.n:level)+' failed'}</h2><p>${failReason} You keep the ore in your hold.</p>
+function showFail(){state='failed';const loc=cur,part=mission==='quota'?Math.round(quotaGot*RUSH_PARTIAL):0;credits+=part;score+=part;endFlight();saveGame();
+  showOv(`<h2 style="color:#ff7a5a">${loc&&loc.kind!=='story'?'Job failed':'Sector '+(loc?loc.n:level)+' failed'}</h2><p>${failReason} ${part?`The client pays ${fmt(part)} cr for what you delivered.`:'You keep the ore in your hold.'}</p>
   <div class="btns"><button class="btn" data-act="retry">Try again</button><button class="btn alt" data-act="sysmap">Back to the system map</button></div>`);SY.retry=loc}
 function saveGameKeepLevel(){saveGame()}
 function gameOver(){state='over';sfx.over();endFlight();cur=null;if(score>best){best=score;store.set('orerush_best',best)}const claim=Math.floor(credits*.3);
@@ -1764,7 +1768,7 @@ function gameOver(){state='over';sfx.over();endFlight();cur=null;if(score>best){
   <p>File an insurance claim to get 3 new ships. You wake up docked at the station. The insurer keeps 30% of your credits (${fmt(claim)} cr). Your upgrades and cargo stay.</p>
   <div class="btns"><button class="btn warn" data-act="insure">Insurance claim</button><button class="btn alt" data-act="new">Start a new game</button></div>`)}
 function pauseGame(){if(state!=='play')return;state='pause';moveStick=aimStick=null;mouse.down=false;
-  showOv(`<h2>Paused</h2><div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn alt" data-act="quit">Abandon sector &amp; quit</button></div><div class="help">Quitting returns you to your last save, before this flight.</div>`);document.body.classList.add('paused')}
+  showOv(`<h2>Paused</h2><div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn alt" data-act="quit">Return to the station</button></div><div class="help">Leave this job and fly back to ${fr?getSys(fr.sys).station:'the station'}. The ore in your hold stays yours, but there is no reward for the job.</div>`);document.body.classList.add('paused')}
 function resumeGame(){hideOv();state='play';last=performance.now();document.body.classList.add('playing')}
 
 
@@ -1874,7 +1878,7 @@ ov.addEventListener('click',e=>{initAudio();const b=e.target.closest('button');i
     store.set(SAVE,sv);loadGame(sv);saveGame();toast('Copied your real game (sector '+sv.level+') into the test version');showTitle()}
   else if(act==='vtest')vibeTest();
   else if(act==='resume')resumeGame();
-  else if(act==='quit'){endFlight();cur=null;const sv=store.get(SAVE);if(sv)loadGame(sv);showSystem()}
+  else if(act==='quit'){laserSound(false);endFlight();cur=null;saveGame();showStation();toast('Job abandoned. Back at the station.')}
   else if(act==='menu'){if(state==='shop'||state==='station')saveGame();showTitle()}});
 
 document.getElementById('pauseBtn').addEventListener('click',()=>{initAudio();state==='play'?pauseGame():state==='pause'&&resumeGame()});
