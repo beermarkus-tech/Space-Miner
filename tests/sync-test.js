@@ -79,11 +79,11 @@ const IN = {
   await A.fill('#syncTok', TOKEN); await A.click('button[data-act=syncConnect]'); await IN.idle(A);
   const g1 = gist(), m1 = meta();
   check('A: first upload creates ONE private Gist found by "Ore Rush" description',
-    Object.keys(GHS.gists).length === 1 && g1.public === false && g1.description === 'Ore Rush save (managed by the game, do not edit)');
+    Object.keys(GHS.gists).length === 1 && g1.public === false && g1.description === await A.evaluate(() => GIST_DESC) && /^Ore Rush (DEV )?save/.test(g1.description));
   check('A: Gist holds save + meta + live marker; meta has version, device, name, time, sector, score, play time',
     g1.files['orerush-save.txt'].startsWith('ORS2:') && m1.ver === 1 && m1.dev && m1.name === 'Tablet' && m1.level === 5 && m1.score === 50000 && m1.t === 1800 && m1.time > 0 && live().dev === m1.dev);
   check('token is kept on the device only (in localStorage, never in the Gist)',
-    !JSON.stringify(GHS.gists).includes(TOKEN) && (await A.evaluate(() => JSON.parse(localStorage.getItem('orerush_sync')).token)) === TOKEN);
+    !JSON.stringify(GHS.gists).includes(TOKEN) && (await A.evaluate(() => JSON.parse(localStorage.getItem(KP + 'orerush_sync')).token)) === TOKEN);
   await A.evaluate(() => showTitle());
   check('menu shows status "Synced just now · Tablet"', (await A.evaluate(() => document.getElementById('syncSt').textContent)).includes('Synced just now · Tablet'));
 
@@ -206,7 +206,7 @@ const IN = {
   check('cloud screen has Sync now, Pause, Undo, Disconnect', /Sync now/.test(btns) && /Pause/.test(btns) && /Undo/.test(btns) && /Disconnect/.test(btns));
   await A.click('button[data-act=syncOff]');
   check('Disconnect removes the key from the device; the Gist stays on GitHub',
-    !(await A.evaluate(() => JSON.parse(localStorage.getItem('orerush_sync')).token)) && Object.keys(GHS.gists).length === 1);
+    !(await A.evaluate(() => JSON.parse(localStorage.getItem(KP + 'orerush_sync')).token)) && Object.keys(GHS.gists).length === 1);
 
   // ---------- 16. every 3 minutes while visible (fake clock, so the test doesn't wait 3 real minutes) ----------
   {

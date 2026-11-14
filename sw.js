@@ -1,14 +1,14 @@
 // Ore Rush service worker: offline support.
 // Bump VERSION whenever you deploy changes so old caches are cleared. Keep the number equal to BUILD in index.html.
-const VERSION = 'ore-rush-v10';
+const VERSION = 'ore-rush-dev-1';   // test version (frontier branch): own cache name, own scope (/dev/)
 const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-512.png',
-  './icons/apple-touch-icon.png'
+  './icons/dev-192.png',
+  './icons/dev-512.png',
+  './icons/dev-maskable-512.png',
+  './icons/dev-apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {

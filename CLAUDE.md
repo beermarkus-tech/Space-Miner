@@ -7,6 +7,19 @@ Ore Rush: a Space-Miner-style 2D mining shooter, shipped as a static PWA on GitH
 (https://beermarkus-tech.github.io/Space-Miner/). The owner builds by prompting AI and verifying results
 in the browser and on his phone, so keep changes playable and explain them in plain words.
 
+## Branch `frontier` (this branch): the star-map / trading update, published as the test version
+- Published at https://beermarkus-tech.github.io/Space-Miner/dev/ as the app "Ore Rush DEV" (own manifest + `icons/dev-*`).
+- `DEV=true` in `index.html`: every localStorage key gets the prefix `dev_` (`KP`), its own cloud Gist (`GIST_DESC`), title shows "DEV BUILD n".
+  The real game's save (`orerush2_save` without prefix) is only read, by "Copy my real game into this test version".
+- **On every push to frontier, bump `BUILD` (dev counter) and `VERSION` in `sw.js` (`'ore-rush-dev-N'`) together.** Tell the owner "DEV build N".
+- **Never merge frontier into main** until the owner says the new version is better. When merging: `DEV=false`, restore the real manifest,
+  icons and sw names, continue the real BUILD number from main.
+- Frontier section `// === frontier`: `HOME_SYS` (4 hand-made systems), generated systems in `fr.gen` (`genNeighbors`), `fr` state in the save
+  (sys, day, fuel, cargo, known prices, saturation, gen, links, visited, seed). Flights: `cur` = location, `startFlight/endFlight`; while flying
+  `level` is the flight difficulty and `homeLevel` the campaign progress. Markets: `priceOf`, `sellOre`, `sysEvent`. Screens: `showStation`,
+  `showSystem`, `showGalaxy`; actions in `FR_ACT`. After a win an `exitGate` opens; flying into it ends the flight.
+- Tests: `node tests/sync-test.js` (cloud sync). Gameplay checks are ad-hoc Playwright scripts.
+
 ## Architecture
 - **Single file:** `index.html` holds everything (CSS, HTML overlays, all JS). No framework, no build, no dependencies.
   Only Google Fonts (Orbitron, Exo 2) load from outside.

@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Ore Rush</title>
+<title>Ore Rush DEV</title>
 <meta name="theme-color" content="#03040a">
 <meta name="description" content="Ore Rush: a deep-space mining shooter. Blast asteroids, collect ore, fight pirates, upgrade your ship.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="icons/dev-apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Ore Rush">
+<meta name="apple-mobile-web-app-title" content="Ore Rush DEV">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -86,6 +86,16 @@
   .card button.eqb{border-color:rgba(94,240,255,.6);background:rgba(94,240,255,.1);color:var(--cyan)}
   .card button:disabled{opacity:.35;cursor:default}
   .stat{font-size:12px;color:#7ff7ff}
+  .market{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+  .mrow{display:grid;grid-template-columns:14px 1fr auto auto;gap:8px;align-items:center;padding:8px 10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03)}
+  .mrow.dim{opacity:.55}.mrow .dot{margin:0}.mn{font-weight:600;font-size:14px}.mn small{display:block;font-size:11px;color:#93a8c6;font-weight:400}.mh{color:#9fdcff;font-family:Orbitron;font-size:12px}
+  .mp{font-family:Orbitron;font-weight:700;font-size:14px;text-align:right}.mp small{font-size:10px}
+  .sellb{font-family:Orbitron;font-weight:700;font-size:11.5px;padding:8px 9px;border-radius:9px;border:1px solid rgba(255,200,69,.6);background:rgba(255,200,69,.12);color:var(--amber);cursor:pointer;white-space:nowrap}
+  .loc{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:rgba(255,255,255,.03);margin:7px 0}
+  .loc>div{flex:1;font-size:14px}.loc small{display:block;font-size:12px;color:#93a8c6;margin-top:2px}.loc b{color:#e9f6ff}
+  .loc .btn{padding:10px 14px;font-size:13px;flex:none}.loc.next{border-color:rgba(255,200,69,.6);background:rgba(255,200,69,.07)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}.chip{font-family:Orbitron;font-size:11px;padding:6px 9px;border-radius:9px;border:1px solid var(--line);background:rgba(94,240,255,.05);color:#cfefff;cursor:pointer}
+  svg.sysmap{width:100%;height:auto;display:block;margin:6px 0 4px;border:1px solid rgba(255,255,255,.06);border-radius:12px;background:radial-gradient(ellipse at center,rgba(40,60,110,.25),rgba(0,0,0,.2));font-family:'Exo 2',sans-serif}
   #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);max-width:min(92vw,520px);background:rgba(8,12,26,.94);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;color:#dfe9ff;z-index:30;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center}
   #toast.show{opacity:1}
   .syncside{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px;line-height:1.5;background:rgba(94,240,255,.04)}
@@ -113,7 +123,10 @@
 <script>
 'use strict';
 // Build number, shown in the main menu. Bump it together with VERSION in sw.js on every push.
-const BUILD=10;
+// DEV = the test version on the frontier branch (published at /dev/). It keeps its own saves and settings (keys start with dev_),
+// its own cloud Gist and app icon. When frontier becomes the real game: set DEV=false, restore manifest/icons/sw names, continue BUILD from main.
+const DEV=true,BUILD=1;
+const KP=DEV?'dev_':'';   // prefix for every localStorage key
 // ================= helpers =================
 const TAU=Math.PI*2;
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -124,13 +137,13 @@ const pick=a=>a[Math.floor(Math.random()*a.length)];
 function hexA(h,a){const n=parseInt(h.slice(1),16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`}
 function shade(h,amt){const n=parseInt(h.slice(1),16);let r=n>>16&255,g=n>>8&255,b=n&255;const t=amt<0?0:255,p=Math.abs(amt);
   r=Math.round(r+(t-r)*p);g=Math.round(g+(t-g)*p);b=Math.round(b+(t-b)*p);return `rgb(${r},${g},${b})`}
-const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const store={get(k){try{return JSON.parse(localStorage.getItem(KP+k))}catch(e){return null}},set(k,v){try{localStorage.setItem(KP+k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(KP+k)}catch(e){}}};
 const fmt=n=>Math.round(n).toLocaleString();
 
 // ================= canvas =================
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 let DPR=1,SW=0,SH=0,ZOOM=1;
-const radarSize=()=>Math.min(SW,SH)<500?92:124;
+const radarSize=()=>Math.min(SW,SH)<500?108:146;
 function resize(){DPR=Math.min(window.devicePixelRatio||1,2);SW=innerWidth;SH=innerHeight;cv.width=Math.round(SW*DPR);cv.height=Math.round(SH*DPR);
   cv.style.width=SW+'px';cv.style.height=SH+'px';ZOOM=clamp(Math.min(SW,SH)/640,0.55,1.15);
   document.getElementById('topbtns').style.right=(radarSize()+24)+'px'}
@@ -234,7 +247,7 @@ function initAudio(){if(AC){if(AC.state==='suspended'&&!document.hidden)AC.resum
     setInterval(musTick,25)}catch(e){AC=null}}
 function applySound(){muted=sndMode===2;if(!AC)return;const t=AC.currentTime;master.gain.setTargetAtTime(muted?0:MASTER_VOL,t,.02);
   musBus.gain.setTargetAtTime(sndMode===0?MUS_VOL*(state==='pause'?.35:1):0,t,.08);if(muted)laserSound(false)}
-function thr(k,ms){const n=performance.now();if(n-(sndT[k]||0)<ms)return true;sndT[k]=n;return false}
+function thr(k,ms){const n=performance.now();if(sndT[k]!==undefined&&n-sndT[k]<ms)return true;sndT[k]=n;return false}
 function tone(f,dur,type,vol,f2,delay=0){if(!AC||muted)return;const t=AC.currentTime+delay,o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,t);
   if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(sfxBus);o.start(t);o.stop(t+dur+.02)}
 function noise(dur,vol,freq,delay=0){if(!AC||muted)return;const t=AC.currentTime+delay,s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=noiseBuf;f.type='lowpass';
@@ -373,13 +386,13 @@ function musicUpdate(){if(!AC)return;let w='menu',root=45;
 
 // ================= game data =================
 const SHIPS=[
-  {id:'prospector',name:'Prospector',desc:'Your reliable starter rig.',cost:0,hull:1,shield:1,speed:1,dmg:1,rate:1,r:15,col:'#c8d3e2',acc:'#ff8a3d',len:24,bw:8,span:17,wx:[8,-6,-13,-9],eng:1},
-  {id:'wasp',name:'Wasp',desc:'Fast and agile. Thin armor, +15% fire rate.',cost:6000,req:3,hull:.8,shield:1,speed:1.3,dmg:1,rate:1.15,r:13,col:'#ffd84a',acc:'#2a2a2a',len:27,bw:6,span:19,wx:[10,-11,-15,-6],eng:1},
-  {id:'bulwark',name:'Bulwark',desc:'Heavy armor and big shields. Slower.',cost:12000,req:6,hull:1.75,shield:1.45,speed:.86,dmg:1.05,rate:1,r:19,col:'#8fa3b8',acc:'#4ff3ff',len:25,bw:11,span:21,wx:[10,0,-14,-12],eng:2},
-  {id:'raptor',name:'Raptor',desc:'Combat frame. +30% damage, faster missiles.',cost:25000,req:11,hull:1.3,shield:1.2,speed:1.12,dmg:1.3,rate:1.05,r:16,col:'#ff6a5a',acc:'#ffffff',len:28,bw:7.5,span:20,wx:[9,3,-7,-12],eng:1},
-  {id:'leviathan',name:'Leviathan',desc:'Flagship of the belt. Better at everything.',cost:55000,req:17,hull:2.1,shield:1.8,speed:1.1,dmg:1.5,rate:1.12,r:20,col:'#b98cff',acc:'#ffd84a',len:31,bw:10,span:23,wx:[12,-4,-17,-12],eng:2},
-  {id:'valkyrie',name:'Valkyrie',desc:'Elite strike frame. Fast, hard-hitting and well armored.',cost:150000,req:24,hull:2.4,shield:2,speed:1.2,dmg:1.75,rate:1.18,r:18,col:'#4fd6ff',acc:'#ff4fd8',len:33,bw:8.5,span:24,wx:[13,0,-16,-10],eng:2},
-  {id:'sovereign',name:'Sovereign',desc:'The best ship money can buy. Heavy, quick and deadly.',cost:400000,req:32,hull:2.9,shield:2.5,speed:1.16,dmg:2.1,rate:1.25,r:21,col:'#ffd84a',acc:'#b98cff',len:34,bw:11,span:25,wx:[12,-6,-18,-12],eng:2}
+  {id:'prospector',cap:60,name:'Prospector',desc:'Your reliable starter rig.',cost:0,hull:1,shield:1,speed:1,dmg:1,rate:1,r:15,col:'#c8d3e2',acc:'#ff8a3d',len:24,bw:8,span:17,wx:[8,-6,-13,-9],eng:1},
+  {id:'wasp',cap:50,name:'Wasp',desc:'Fast and agile. Thin armor, +15% fire rate.',cost:6000,req:3,hull:.8,shield:1,speed:1.3,dmg:1,rate:1.15,r:13,col:'#ffd84a',acc:'#2a2a2a',len:27,bw:6,span:19,wx:[10,-11,-15,-6],eng:1},
+  {id:'bulwark',cap:110,name:'Bulwark',desc:'Heavy armor and big shields. Slower.',cost:12000,req:6,hull:1.75,shield:1.45,speed:.86,dmg:1.05,rate:1,r:19,col:'#8fa3b8',acc:'#4ff3ff',len:25,bw:11,span:21,wx:[10,0,-14,-12],eng:2},
+  {id:'raptor',cap:80,name:'Raptor',desc:'Combat frame. +30% damage, faster missiles.',cost:25000,req:11,hull:1.3,shield:1.2,speed:1.12,dmg:1.3,rate:1.05,r:16,col:'#ff6a5a',acc:'#ffffff',len:28,bw:7.5,span:20,wx:[9,3,-7,-12],eng:1},
+  {id:'leviathan',cap:140,name:'Leviathan',desc:'Flagship of the belt. Better at everything.',cost:55000,req:17,hull:2.1,shield:1.8,speed:1.1,dmg:1.5,rate:1.12,r:20,col:'#b98cff',acc:'#ffd84a',len:31,bw:10,span:23,wx:[12,-4,-17,-12],eng:2},
+  {id:'valkyrie',cap:120,name:'Valkyrie',desc:'Elite strike frame. Fast, hard-hitting and well armored.',cost:150000,req:24,hull:2.4,shield:2,speed:1.2,dmg:1.75,rate:1.18,r:18,col:'#4fd6ff',acc:'#ff4fd8',len:33,bw:8.5,span:24,wx:[13,0,-16,-10],eng:2},
+  {id:'sovereign',cap:200,name:'Sovereign',desc:'The best ship money can buy. Heavy, quick and deadly.',cost:400000,req:32,hull:2.9,shield:2.5,speed:1.16,dmg:2.1,rate:1.25,r:21,col:'#ffd84a',acc:'#b98cff',len:34,bw:11,span:25,wx:[12,-6,-18,-12],eng:2}
 ];
 const WEAPONS=[
   {id:'blaster',name:'Pulse Blaster',desc:'Rapid bolts. Gains extra barrels.',cost:0,ub:110,color:'#5ef0ff'},
@@ -395,6 +408,7 @@ const UPG=[
   {id:'magnet',name:'Ore Magnet',desc:'Pulls ore in from further away.',max:5,base:80},
   {id:'refinery',name:'Onboard Refinery',desc:'+12% value on all ore.',max:5,base:220},
   {id:'missile',name:'Seeker Missiles',desc:'Auto-launches homing missiles.',max:5,base:320},
+  {id:'cargo',name:'Cargo Bay',desc:'More room in the hold for ore.',max:5,base:100},
   {id:'wing',name:'Wingman Drones',desc:'Escort drones that shoot and grab ore.',max:3,base:650}
 ];
 const PU={rapid:{c:'#ff9a3c',l:'R',name:'RAPID FIRE'},over:{c:'#ff4a4a',l:'2×',name:'OVERCHARGE'},shield:{c:'#5ef0ff',l:'S',name:'SHIELDS UP'},
@@ -434,7 +448,7 @@ const wUpCost=(w,l)=>Math.round(w.ub*2.5*Math.pow(1.85,l)/10)*10;
 // sector you must have reached before buying upgrade level L (index = level after buying)
 const UPG_REQ=[0,0,3,7,12,18,25],WUP_REQ=[0,0,3,7,12,18];
 // overclock: endless extra levels once something is maxed. Gain per level and price:
-const OC_GAIN={engine:.03,shield:.06,hull:.06,magnet:.06,refinery:.04,missile:.06,wing:.08},OC_WEAPON=.05;
+const OC_GAIN={cargo:.05,engine:.03,shield:.06,hull:.06,magnet:.06,refinery:.04,missile:.06,wing:.08},OC_WEAPON=.05;
 const ocCost=(u,k)=>Math.round(u.base*50*Math.pow(1.5,k)/100)*100;
 const wocCost=(w,k)=>Math.round(w.ub*30*Math.pow(1.5,k)/100)*100;
 // the Belt: buy the deed to any sector you've cleared. Each deed +1% ore value; owning a whole region adds a bonus.
@@ -456,7 +470,7 @@ function wdesc(id,L){const s=wstat(id,L);switch(id){
   case 'plasma':return `${s.dmg} hit + ${s.splash.toFixed(1)} splash`;
   case 'arc':return `${s.dmg.toFixed(1)} dmg · ${s.chain} jumps`}}
 function sysDesc(id,l){return{engine:'Speed '+Math.round(320*(1+.1*l)),shield:'Shield '+(30+22*l),hull:'Hull '+(100+35*l),magnet:'Range '+(110+55*l),
-  refinery:'+'+(12*l)+'% ore value',missile:l?(l>=4?'2 missiles':'1 missile')+' / '+Math.max(.9,3.6-.6*(l-1)).toFixed(1)+'s':'None',wing:['None','1 drone','1 drone, upgraded','2 drones'][l]}[id]}
+  refinery:'+'+(12*l)+'% ore value',missile:l?(l>=4?'2 missiles':'1 missile')+' / '+Math.max(.9,3.6-.6*(l-1)).toFixed(1)+'s':'None',wing:['None','1 drone','1 drone, upgraded','2 drones'][l],cargo:'Hold +'+(20*l)+'%'}[id]}
 
 const BRIEF={
   1:"Welcome aboard, rookie. The Kessler Belt is full of rock, and rock is full of money. Shoot the asteroids, scoop the ore, and bring my ship back in one piece.",
@@ -492,25 +506,27 @@ function briefFor(n){if(BRIEF[n])return BRIEF[n];const m=missionOf(n);
   if(m==='storm')return pick(["Ion storm ahead. Stay inside the safe zone, or risk it for double ore.","The storm is back. Watch the warning rings."]);
   if(m==='lode')return pick(["Another Mother Lode on the scanners. Crack all three shells.","Big rock, big money. Keep the scavengers off the loot."]);
   return pick([`Sector ${n}. Denser field, meaner pirates, bigger paydays. Good hunting.`,`Sector ${n}. Ore prices are up, and so is the pirate traffic. Stay sharp.`,`Sector ${n}. Long-range scans look rich. Don't get greedy out there.`])}
-function objFor(n){const m=missionOf(n);return{clear:['☄','CLEAR THE FIELD','Destroy every asteroid and hostile.'],
-  quota:['⏱','ORE QUOTA',`Collect ${fmt(quotaOf(n))} cr of ore in 100 seconds.`],
+function objFor(n,loc){const m=loc?loc.mission:missionOf(n),bk=loc&&loc.boss||bossOf(n);return{clear:['☄','MINE THE FIELD','Break every big asteroid and destroy all pirates.'],
+  ambush:['⚔','PIRATE AMBUSH','Destroy all pirates.'],
+  quota:['⏱','ORE QUOTA',`Collect ${fmt(quotaOf(n))} cr of ore in 100 seconds. Rush orders pay cash on the spot.`],
   defend:['⛨','DEFEND THE RIG',`Keep the mining rig alive for ${defendTime(n)} seconds.`],
   escort:['➜','ESCORT THE HAULER','Get the ore hauler to the jump gate alive.'],
   storm:['ϟ','SURVIVE THE ION STORM',`Stay alive for ${stormTime(n)} seconds. Ore pays double outside the safe zone.`],
   lode:['◉','CRACK THE MOTHER LODE','Break all three shells of the giant asteroid.'],
-  boss:['☠','BOSS: '+BOSS_NAME[bossOf(n)],bossOf(n)==='warden'?'Destroy the pylons to drop its shield, then hit the core.':'Destroy it. Asteroids optional.']}[m]}
+  boss:['☠','BOSS: '+BOSS_NAME[bk],bk==='warden'?'Destroy the pylons to drop its shield, then hit the core.':'Destroy it. Asteroids optional.']}[m]}
 
 // ================= state =================
+let fr=null,cur=null,inFlight=false,homeLevel=1,exitGate=null;  // galaxy state (see the frontier section)
 let oc={},deeds=[],playT=0;  // playT: seconds spent flying sectors (shown in cloud-save questions)
 let state='title',level=1,credits=0,score=0,lives=3,upg={},wl={},weapon='blaster',shipId='prospector',ownedShips=['prospector'],bombs=1,stars={},S={},hull=100,shield=30;
 let ship=null,asteroids=[],bullets=[],ebullets=[],missiles=[],enemies=[],ores=[],pus=[],mines=[],holes=[],blasts=[],arcs=[],parts=[],texts=[],rig=null,beam=null;
-let WORLD=2000,HALF=1000,cam={x:0,y:0},shake=0,levelTime=0,clearT=-1,failT=-1,failReason='',spawnQ=[],spawnT=0,levelStats=null,nebula=null,planet=null,planetPos={x:.75,y:.28};
+let clusters=[],WORLD=2000,HALF=1000,cam={x:0,y:0},shake=0,levelTime=0,clearT=-1,failT=-1,failReason='',spawnQ=[],spawnT=0,levelStats=null,nebula=null,planet=null,planetPos={x:.75,y:.28};
 let storm=null,frost=[],lode=null,stolen=0,scavT=0;
 let mission='clear',missionT=0,quota=0,quotaGot=0,refillT=0,banner=null,isTouch=false,best=store.get('orerush_best')||0,shopTab='weapons';
 const SAVE='orerush2_save';
 
 function resetProgress(){level=1;credits=0;score=0;lives=3;upg={};UPG.forEach(u=>upg[u.id]=0);wl={};WEAPONS.forEach(w=>wl[w.id]=-1);wl.blaster=0;weapon='blaster';
-  shipId='prospector';ownedShips=['prospector'];bombs=1;stars={};oc={};deeds=[];playT=0;computeStats();hull=S.hullMax}
+  shipId='prospector';ownedShips=['prospector'];bombs=1;stars={};oc={};deeds=[];playT=0;fr=frNew();inFlight=false;cur=null;computeStats();hull=S.hullMax}
 function computeStats(){const sh=SHIPS.find(s=>s.id===shipId),u=upg;
   S={sh,r:sh.r,thrust:470*(1+.14*u.engine)*sh.speed,maxV:320*(1+.1*u.engine)*sh.speed,shieldMax:Math.round((30+22*u.shield)*sh.shield),shieldRegen:(7+4*u.shield)*sh.shield,
     hullMax:Math.round((100+35*u.hull)*sh.hull),magnet:110+55*u.magnet,refine:1+.12*u.refinery,dmgMul:sh.dmg,rateMul:sh.rate,
@@ -521,9 +537,215 @@ function computeStats(){const sh=SHIPS.find(s=>s.id===shipId),u=upg;
   S.hullMax=Math.round(S.hullMax*(1+OC_GAIN.hull*o('hull'))*(rb[2]?1.15:1));S.magnet*=1+OC_GAIN.magnet*o('magnet');
   S.refine*=(1+OC_GAIN.refinery*o('refinery'))*(1+.01*deeds.length)*(rb[0]?1.1:1);
   S.missMul=1+OC_GAIN.missile*o('missile');S.wingMul=1+OC_GAIN.wing*o('wing');if(rb[1])S.dmgMul*=1.1;if(rb[3])S.rateMul*=1.1}
-function saveGame(){store.set(SAVE,{v:2,level,credits,score,lives,upg,wl,weapon,shipId,ownedShips,bombs,hull,stars,oc,deeds,playT:Math.round(playT)});if(typeof syncSoon==='function')syncSoon()}
+function saveGame(){store.set(SAVE,{v:2,level:inFlight?homeLevel:level,fr,credits,score,lives,upg,wl,weapon,shipId,ownedShips,bombs,hull,stars,oc,deeds,playT:Math.round(playT)});if(typeof syncSoon==='function')syncSoon()}
 function loadGame(sv){resetProgress();level=sv.level;credits=sv.credits;score=sv.score;lives=sv.lives;Object.assign(upg,sv.upg||{});Object.assign(wl,sv.wl||{});
-  weapon=sv.weapon||'blaster';shipId=sv.shipId||'prospector';ownedShips=sv.ownedShips||['prospector'];bombs=sv.bombs??1;stars=sv.stars||{};oc=sv.oc||{};deeds=Array.isArray(sv.deeds)?sv.deeds:[];playT=+sv.playT||0;computeStats();hull=sv.hull??S.hullMax}
+  weapon=sv.weapon||'blaster';shipId=sv.shipId||'prospector';ownedShips=sv.ownedShips||['prospector'];bombs=sv.bombs??1;stars=sv.stars||{};oc=sv.oc||{};deeds=Array.isArray(sv.deeds)?sv.deeds:[];playT=+sv.playT||0;fr=frFix(sv.fr||frFromProgress(level));inFlight=false;cur=null;computeStats();hull=sv.hull??S.hullMax}
+// ================= frontier: galaxy, stations, cargo and trading =================
+/* The four campaign regions are star systems linked by jump gates; past the Frozen Halo the galaxy is generated (endless).
+   Each system has a station (market, shipyard, fuel), a jump gate, its 10 story sectors (the campaign) and side jobs that change every day.
+   Ore goes into the cargo hold and is sold at stations. Each station pays its own prices:
+   system profile (sys.mul) × daily drift × station events (shortage/glut for ~3 days) × saturation (selling a lot there lowers the price).
+   A jump costs 1 fuel and moves time forward 1 day; a jump can end in a pirate ambush or a derelict find.
+   Flights: cur = {kind:'story'|'side'|'ambush', n (difficulty), mission, name, boss?}. While flying, `level` holds the flight's difficulty and
+   homeLevel the campaign progress (saveGame always stores the progress). */
+const HOME_SYS=[
+  {id:'kessler',name:'Kessler Belt',station:'Kessler Station',x:0,y:0,r:0,links:['crimson'],hue:210,
+    mul:{rock:.9,iron:.8,gold:.85,ice:1.1,crystal:1.3,plasma:1.5,void:1.6,cryo:1.7}},
+  {id:'crimson',name:'Crimson Expanse',station:'Redhold Market',x:1.15,y:.5,r:1,links:['kessler','voidrim'],hue:8,
+    mul:{rock:1,iron:1.25,gold:1.4,ice:1.5,crystal:1.2,plasma:.7,void:1.3,cryo:1.5}},
+  {id:'voidrim',name:'Void Rim',station:'Last Light Exchange',x:2.2,y:-.1,r:2,links:['crimson','frozen'],hue:270,
+    mul:{rock:1.05,iron:1.4,gold:1.3,ice:1.6,crystal:.85,plasma:1.2,void:.7,cryo:1.4}},
+  {id:'frozen',name:'Frozen Halo',station:'Icebox Depot',x:3.2,y:.45,r:3,links:['voidrim'],hue:192,
+    mul:{rock:1.3,iron:1.5,gold:1.4,ice:.6,crystal:1.2,plasma:1.5,void:1.3,cryo:.7}}];
+const HOME=Object.fromEntries(HOME_SYS.map(s=>[s.id,s]));
+const FUEL_MAX=6;
+const MISSION_NAME={clear:'Asteroid field',quota:'Rush order',defend:'Rig defense',escort:'Convoy escort',storm:'Ion storm',lode:'Mother Lode',boss:'Pirate stronghold',ambush:'Pirate ambush'};
+const PLACES=['the Junkyard','Pebble Run','Old Tom’s Patch','the Gravel Pit','Rubble Row','the Snowglobe','Dustbin Drift','the Teeth','Grandma’s Attic','the Washing Machine',
+  'Bob’s Mistake','the Shiny Bit','Crumb Alley','the Quiet Spot','Last Chance Rocks','the Pinball'];
+const GEN_A=['Grubb’s','Nova','Wobble','Kaboom','Quiet','Old Man’s','Velvet','Rusty','Sputnik’s','Tin Can','Echo','Lucky','Hollow','Saffron','Gloom','Mumble'];
+const GEN_B=[' Reach',' Drift',' Hollow',' Expanse',' Nine',' Rest',' Gap',' Verge',' Shoals',' Belt',' Deep',' Cradle'];
+const GEN_ST=['Outpost','Trading Post','Depot','Exchange','Market','Station','Bazaar','Hub'];
+
+function frNew(){return{sys:'kessler',day:1,fuel:FUEL_MAX,cargo:{},known:{},sat:{},gen:{},links:{},done:{},visited:['kessler'],seed:Math.floor(Math.random()*1e9),news:0}}
+// an existing save (no galaxy yet): put the pilot in the system of their current campaign progress
+function frFromProgress(lv){const f=frNew(),r=Math.min(3,regionOf(Math.min(lv,LAST_SECTOR)));f.sys=HOME_SYS[r].id;f.visited=HOME_SYS.slice(0,r+1).map(s=>s.id);return f}
+function frFix(f){const d=frNew();f=Object.assign(d,f||{});for(const k of ['cargo','known','sat','gen','links','done'])if(!f[k]||typeof f[k]!=='object')f[k]={};if(!Array.isArray(f.visited))f.visited=[f.sys];return f}
+
+// deterministic random numbers (same galaxy and prices for a given seed and day)
+function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+const hashf=s=>hashStr((fr?fr.seed:0)+'|'+s)/4294967296;
+function srand(seed){return()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}}
+
+const getSys=id=>HOME[id]||(fr&&fr.gen[id]);
+const sysLinks=id=>[...((HOME[id]&&HOME[id].links)||(fr.gen[id]&&fr.gen[id].links)||[]),...(fr.links[id]||[])];
+const frontierOpen=()=>homeProgress()>LAST_SECTOR;
+const homeProgress=()=>inFlight?homeLevel:level;
+// can the gate into this system be used yet?
+function sysUnlocked(id){const s=getSys(id);if(!s)return false;if(HOME[id])return homeProgress()>s.r*10;return frontierOpen()}
+function lockText(id){const s=getSys(id);return HOME[id]?`Gate opens after sector ${s.r*10}`:`Gate opens after sector ${LAST_SECTOR}`}
+// difficulty of a system's side jobs
+function sysN(id){const s=getSys(id);if(HOME[id])return clamp(homeProgress()-1,s.r*10+1,s.r*10+10);return LAST_SECTOR+s.depth*4}
+
+// generated systems: created next to the Frozen Halo and next to every generated system you visit
+function genNeighbors(id){if(!frontierOpen()||fr.done[id])return;const s=getSys(id);if(!s||(HOME[id]&&id!=='frozen'))return;
+  const R=srand(hashStr(fr.seed+'gen'+id)),k=HOME[id]?2:1+Math.floor(R()*2.2),all=()=>[...HOME_SYS,...Object.values(fr.gen)];
+  for(let i=0;i<k;i++){let x,y,t=0;do{const a=-1.2+R()*2.4,d=1+R()*.6;x=s.x+Math.cos(a)*d;y=s.y+Math.sin(a)*d;t++}while(all().some(o=>Math.hypot(o.x-x,o.y-y)<.75)&&t<25);
+    const nid='g'+(Object.keys(fr.gen).length+1),depth=(s.depth||0)+1,produce=[pick(['iron','gold','ice','crystal']),pick(['plasma','void','cryo'])];
+    const mul={};for(const k2 of TYPE_KEYS)mul[k2]=+(produce.includes(k2)?.55+R()*.25:.8+R()*.9).toFixed(2);
+    const name=GEN_A[Math.floor(R()*GEN_A.length)]+GEN_B[Math.floor(R()*GEN_B.length)];
+    fr.gen[nid]={id:nid,name,station:name.split(' ')[0].replace(/[’']s$/,'')+' '+GEN_ST[Math.floor(R()*GEN_ST.length)],x,y,depth,hue:Math.floor(R()*360),mul,links:[id]};
+    (fr.links[id]=fr.links[id]||[]).push(nid);
+    // sometimes connect to another nearby system too, so routes can loop
+    for(const o of Object.values(fr.gen))if(o.id!==nid&&o.id!==id&&Math.hypot(o.x-x,o.y-y)<1.25&&R()<.5&&!sysLinks(nid).includes(o.id)){fr.gen[nid].links.push(o.id);(fr.links[o.id]=fr.links[o.id]||[]).push(nid);break}}
+  fr.done[id]=true}
+
+// ---- market ----
+const cargoUsed=()=>Object.values(fr.cargo).reduce((a,b)=>a+b,0);
+const cargoCap=()=>Math.round((S.sh.cap||60)*(1+.2*(upg.cargo||0))*(1+OC_GAIN.cargo*(oc.cargo||0)));
+const holdRoom=()=>cargoCap()-cargoUsed();
+function sysEvent(id,day){const b=Math.floor(day/3),h=hashf(id+'ev'+b);if(h>.38)return null;
+  const k=TYPE_KEYS[Math.floor(hashf(id+'evk'+b)*TYPE_KEYS.length)],up=hashf(id+'evu'+b)<.65;return{k,up,f:up?1.6:.6}}
+function priceOf(id,k,day){day=day||fr.day;const s=getSys(id);let m=(s.mul&&s.mul[k])||1;
+  m*=1+.12*(hashf(id+k+day)*2-1);const ev=sysEvent(id,day);if(ev&&ev.k===k)m*=ev.f;
+  m/=1+((fr.sat[id]||{})[k]||0)/80;return Math.max(1,Math.round(TYPES[k].val*m*S.refine))}
+function newsFor(id){const s=getSys(id),ev=sysEvent(id,fr.day);
+  if(ev){const N=TYPES[ev.k].name;return ev.up?pick([`${N} shortage on ${s.station}! They pay a lot more for a few days.`,`Somebody at ${s.station} sneezed on the ${N} supply. Prices are way up.`,`${s.station} is desperate for ${N}. Name your price (well, almost).`])
+    :pick([`Too much ${N} on ${s.station}. Prices crashed. Sell it somewhere else.`,`A freighter dumped a mountain of ${N} here. Nobody wants more for a few days.`])}
+  return pick(['Quiet day. The coffee machine is broken again.','Rumour: a pilot found a talking asteroid. Probably just Dave.','Pirates were spotted near the gate. As usual.',
+    'The station cat has been promoted to Head of Security.','Somebody keeps hearing a humming from the Frozen Halo. Management says: no, you don’t.','Fuel prices stable. Pilot jokes still terrible.'])}
+function rememberPrices(id){const p={};for(const k of TYPE_KEYS)p[k]=priceOf(id,k);fr.known[id]={day:fr.day,p}}
+function bestElsewhere(k){let best=null;for(const[id,kn]of Object.entries(fr.known)){if(id===fr.sys||!getSys(id))continue;const v=kn.p[k];if(v&&(!best||v>best.v))best={v,id,day:kn.day}}return best}
+// sell: the price drops a little with every unit sold here
+function sellOre(k,all){let units=fr.cargo[k]||0;if(units<=0)return 0;let total=0;const sat=fr.sat[fr.sys]=fr.sat[fr.sys]||{};
+  while(units>1e-6){const u=Math.min(1,units);total+=priceOf(fr.sys,k)*u;sat[k]=(sat[k]||0)+u;units-=u}
+  delete fr.cargo[k];total=Math.round(total);credits+=total;score+=total;if(!all){sfx.buy();saveGame()}return total}
+function sellAll(){let t=0;for(const k of Object.keys(fr.cargo))t+=sellOre(k,true);if(t){sfx.clear();saveGame();toast(`Sold everything for ${fmt(t)} cr`)}return t}
+const fuelPrice=()=>20+homeProgress()*4;
+
+// ---- side jobs (change every day) ----
+function sideJobs(id){const n=sysN(id),R=srand(hashStr(fr.seed+'jobs'+id+fr.day)),k=HOME[id]?2:3,jobs=[];
+  const pool=['clear','clear',...(n>=4?['quota']:[]),...(n>=8?['defend']:[]),...(n>=9?['lode','lode']:[]),...(n>=13?['escort']:[]),...(n>=16?['storm']:[]),...(!HOME[id]?['boss']:[])];
+  for(let i=0;i<k;i++){const m=pool[Math.floor(R()*pool.length)],place=PLACES[Math.floor(R()*PLACES.length)];
+    jobs.push({kind:'side',id:id+'-'+fr.day+'-'+i,mission:m,n,name:`${MISSION_NAME[m]}: ${place}`,boss:m==='boss'?BOSSES[Math.floor(R()*BOSSES.length)]:null,hue:getSys(id).hue})}
+  return jobs}
+function storyLoc(n){return{kind:'story',n,mission:missionOf(n),name:'Sector '+n,boss:null}}
+
+// ---- flights ----
+function startFlight(loc){cur=loc;if(!inFlight){homeLevel=level;inFlight=true}level=loc.n;startLevel()}
+function endFlight(){if(inFlight){level=homeLevel;inFlight=false}exitGate=null}
+const curBoss=()=>cur&&cur.boss||bossOf(level);
+function openExitGate(){if(!ship)return;const a=Math.atan2(-ship.y,-ship.x)+rand(-.6,.6),d=380,lim=HALF-160;
+  exitGate={x:clamp(ship.x+Math.cos(a)*d,-lim,lim),y:clamp(ship.y+Math.sin(a)*d,-lim,lim),r:48,t:0};addPart({k:'ring',x:exitGate.x,y:exitGate.y,vx:0,vy:0,life:.8,max:.8,size:120,color:'#7fe8ff'})}
+function drawExitGate(t){const g=exitGate;ctx.save();ctx.translate(g.x,g.y);ctx.globalCompositeOperation='lighter';drawGlow(0,0,120,'#7fe8ff',.3+.1*Math.sin(t*.006));
+  ctx.rotate(t*.0015);ctx.strokeStyle='rgba(127,232,255,.9)';ctx.lineWidth=5;ctx.setLineDash([24,12]);ctx.beginPath();ctx.arc(0,0,58,0,TAU);ctx.stroke();
+  ctx.rotate(-t*.003);ctx.strokeStyle='rgba(199,125,255,.7)';ctx.lineWidth=2.5;ctx.setLineDash([10,9]);ctx.beginPath();ctx.arc(0,0,40,0,TAU);ctx.stroke();ctx.setLineDash([]);
+  drawGlow(0,0,36,'#e0fbff',.7);ctx.restore()}
+// arrows at the screen edge pointing at what matters right now
+function arrowTargets(){const T=[],near=list=>{let b=null,bd=1e9;for(const o of list){const d=Math.hypot(o.x-ship.x,o.y-ship.y);if(d<bd){bd=d;b=o}}return b};
+  if(!ship||ship.dead)return T;
+  if(exitGate){T.push([exitGate,'#7fe8ff','EXIT']);return T}if(clearT>=0||failT>=0)return T;
+  if(mission==='clear'){const g=near(asteroids.filter(a=>a.goal));if(g)T.push([g,'#ffd84a','']);}
+  if(['clear','ambush','quota','storm','lode'].includes(mission)){const e=near(enemies);if(e)T.push([e,'#ff5a5a',''])}
+  if(mission==='boss'){const b=enemies.find(e=>e.boss);if(b)T.push([b,'#ff5a5a','BOSS'])}
+  if((mission==='escort'||mission==='defend')&&rig&&!rig.dead)T.push([rig,'#7fe8ff',mission==='escort'?'HAULER':'RIG']);
+  if(mission==='lode'&&lode&&!lode.dead)T.push([lode,'#ffd84a','LODE']);
+  if(mission==='storm'&&storm&&storm.out)T.push([{x:storm.cx,y:storm.cy},'#c9b3ff','SAFE']);
+  return T}
+function drawArrows(){const L=30,Tp=Math.min(SW,SH)<500?150:120,Rr=SW-30,B=SH-92,cx=SW/2,cy=(Tp+B)/2;
+  for(const[o,col,label]of arrowTargets()){const sx=SW/2+(o.x-cam.x)*ZOOM,sy=SH/2+(o.y-cam.y)*ZOOM;if(sx>L&&sx<Rr&&sy>Tp&&sy<B)continue;
+    const dx=sx-cx,dy=sy-cy,k=Math.min(dx?((dx>0?Rr:L)-cx)/dx:1e9,dy?((dy>0?B:Tp)-cy)/dy:1e9),x=cx+dx*k,y=cy+dy*k,a=Math.atan2(dy,dx);
+    ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.fillStyle=col;ctx.globalAlpha=.85;ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-7,-8);ctx.lineTo(-3,0);ctx.lineTo(-7,8);ctx.closePath();ctx.fill();ctx.restore();
+    if(label){ctx.font='700 9px Orbitron';ctx.textAlign='center';ctx.fillStyle=col;ctx.globalAlpha=.85;ctx.fillText(label,x-Math.cos(a)*22,y-Math.sin(a)*22+3);ctx.globalAlpha=1}}}
+
+// ---- jumps ----
+function jumpTo(id){if(!sysLinks(fr.sys).includes(id))return;if(!sysUnlocked(id))return toast(lockText(id));
+  if(fr.fuel<1)return toast('Out of fuel. Buy some at the station.');
+  fr.fuel--;fr.day++;for(const s of Object.values(fr.sat))for(const k in s){s[k]*=.7;if(s[k]<.5)delete s[k]}
+  fr.sys=id;if(!fr.visited.includes(id))fr.visited.push(id);genNeighbors(id);sfx.jump();saveGame();
+  const r=Math.random(),s=getSys(id),n=sysN(id);
+  if(r<.2&&homeProgress()>3){state='event';showOv(`<div class="kicker">ARRIVING · ${s.name.toUpperCase()}</div><h2 style="color:#ff7a5a">⚠ Pirate ambush!</h2>
+      <p>${pick(['A pirate gang was waiting at the gate. Their leader says: “Nice cargo. Hand it over.”','Pirates! They have a banner that says WELCOME. It is a trap.','Three pirate ships drop out of nowhere. One of them is painted pink, which is somehow worse.'])}</p>
+      <div class="btns"><button class="btn warn" data-act="ambushFight">Fight them</button>${cargoUsed()>0?`<button class="btn alt" data-act="ambushPay">Hand over 25% of your cargo</button>`:''}</div>`);return}
+  if(r<.32){const k=bestType(n),amt=Math.min(holdRoom(),Math.round(rand(4,10)));state='event';
+    showOv(`<div class="kicker">ARRIVING · ${s.name.toUpperCase()}</div><h2>Drifting wreck</h2><p>${pick(['You find an abandoned freighter. The captain’s log just says “never again”.','A wreck tumbles past the gate. Its cargo bay is still sealed.','Somebody left a cargo pod here with a note: “finders keepers”.'])}</p>
+      ${amt>0?`<p>Salvage: <b style="color:${TYPES[k].ore}">${amt} ${TYPES[k].name}</b></p><div class="btns"><button class="btn" data-act="salvage" data-k="${k}" data-v="${amt}">Take it</button><button class="btn alt" data-act="sysmap">Leave it</button></div>`
+        :`<p>Your hold is full, so you leave it.</p><div class="btns"><button class="btn" data-act="sysmap">Continue</button></div>`}`);return}
+  toast(`Arrived at ${s.name} · day ${fr.day}`);showSystem()}
+
+// ---- screens ----
+const holdBar=()=>{const u=cargoUsed(),c=cargoCap();return`<span>Cargo</span><span class="v" style="color:${u>=c?'#ff7a5a':'inherit'}">${Math.floor(u)} / ${c}</span>`};
+function showStation(){state='station';const id=fr.sys,s=getSys(id);rememberPrices(id);computeStats();
+  const rows=TYPE_KEYS.map(k=>{const T=TYPES[k],have=fr.cargo[k]||0,p=priceOf(id,k),rel=p/(T.val*S.refine),b=bestElsewhere(k);
+    if(!have&&!fr.visited.length)return'';
+    return`<div class="mrow ${have?'':'dim'}"><i class="dot" style="background:${T.ore};box-shadow:0 0 8px ${T.ore}"></i><div class="mn">${T.name}${have?` <span class="mh">× ${Math.floor(have)}</span>`:''}
+      ${b?`<small>best seen: ${fmt(b.v)} at ${getSys(b.id).station}${b.day<fr.day?` (day ${b.day})`:''}</small>`:''}</div>
+      <div class="mp" style="color:${rel>1.15?'#7dff7a':rel<.85?'#ff7a5a':'#ffc845'}">${fmt(p)}<small> cr${rel>1.15?' ▲':rel<.85?' ▼':''}</small></div>
+      ${have?`<button class="sellb" data-act="sell" data-k="${k}">Sell ${fmt(Math.round(p*have))}</button>`:'<span></span>'}</div>`}).join('');
+  const total=Object.keys(fr.cargo).reduce((a,k)=>a+priceOf(id,k)*fr.cargo[k],0);
+  showOv(`<div class="kicker">${s.name.toUpperCase()} · DAY ${fr.day}</div><h2>${s.station}</h2>
+    <div class="row2"><button class="btn" data-act="undock">🚀 Undock</button><button class="btn alt" data-act="shop">🛠 Shipyard</button></div>
+    ${fr.fuel<FUEL_MAX?`<div class="row2"><button class="btn alt" data-act="refuel" ${credits<fuelPrice()?'disabled':''}>⛽ Refuel ${FUEL_MAX-fr.fuel} jump${FUEL_MAX-fr.fuel>1?'s':''} · ${fmt(fuelPrice()*(FUEL_MAX-fr.fuel))} cr</button></div>`:''}
+    <div class="radio"><b>STATION NEWS</b>${fr.news===fr.day*1000+hashStr(id)%997?fr.newsTxt:(fr.newsTxt=newsFor(id),fr.news=fr.day*1000+hashStr(id)%997,fr.newsTxt)}</div>
+    <div class="rows"><span>Credits</span><span class="v credits">${fmt(credits)} cr</span>${holdBar()}<span>Fuel</span><span class="v">${fr.fuel} / ${FUEL_MAX}</span>
+    <span>Hull</span><span class="v" style="color:${hull<S.hullMax*.5?'#ff7a5a':'inherit'}">${Math.round(hull)} / ${S.hullMax}</span></div>
+    <div class="kicker" style="margin-top:6px">MARKET · PRICES PER UNIT</div><div class="market">${rows}</div>
+    ${cargoUsed()>0?`<div class="btns" style="margin-top:10px"><button class="btn" data-act="sellall">Sell everything · ${fmt(Math.round(total))} cr</button></div>`:''}
+    <div class="btns"><button class="btn alt" data-act="menu">Main menu</button></div>
+    <div class="help">▲ pays more than usual here · ▼ pays less. Selling a lot of one ore lowers its price here for a few days.</div>`)}
+function sysSvg(id){const s=getSys(id),W=340,H=190,cx=W/2,cy=H/2+4,col=`hsl(${s.hue},80%,65%)`;let g='';
+  g+=`<circle cx="${cx}" cy="${cy}" r="14" fill="hsl(${s.hue},90%,70%)" opacity=".9"/><circle cx="${cx}" cy="${cy}" r="30" fill="hsl(${s.hue},90%,60%)" opacity=".15"/>`;
+  for(const r of [52,78])g+=`<ellipse cx="${cx}" cy="${cy}" rx="${r*1.9}" ry="${r}" fill="none" stroke="rgba(255,255,255,.08)"/>`;
+  g+=`<g><rect x="${cx-118}" y="${cy-46}" width="22" height="22" rx="4" fill="#2a3a52" stroke="#5ef0ff"/><text x="${cx-107}" y="${cy-14}" fill="#9fdcff" font-size="9" text-anchor="middle">STATION</text></g>`;
+  g+=`<g><circle cx="${cx+122}" cy="${cy-30}" r="11" fill="none" stroke="#7fe8ff" stroke-width="3" stroke-dasharray="6 4"/><text x="${cx+122}" y="${cy-8}" fill="#9fdcff" font-size="9" text-anchor="middle">GATE</text></g>`;
+  if(HOME[id])for(let i=0;i<10;i++){const sn=s.r*10+i+1,a=Math.PI*.15+i/9*Math.PI*.95,x=cx+Math.cos(a)*150,y=cy+Math.sin(a)*70,done=sn<homeProgress(),next=sn===homeProgress();
+    g+=`<circle cx="${x}" cy="${y}" r="${next?8:6}" fill="${done?col:next?'#ffc845':'#202838'}" stroke="${next?'#fff':'rgba(255,255,255,.25)'}"/><text x="${x}" y="${y+3}" fill="${done||next?'#03121a':'#6a7890'}" font-size="7" text-anchor="middle" font-weight="700">${sn}</text>`}
+  return`<svg viewBox="0 0 ${W} ${H}" class="sysmap" aria-hidden="true">${g}</svg>`}
+function showSystem(){state='sysmap';const id=fr.sys,s=getSys(id),p=homeProgress();setupFieldPreview(s);
+  let story='';if(HOME[id]){const first=s.r*10+1,last=s.r*10+10;
+    if(p>=first&&p<=last){const L=storyLoc(p),o=objFor(p);story+=`<div class="loc next"><div><b>Sector ${p}</b> · ${o[1]}<small>${o[2]}</small></div><button class="btn" data-act="fly" data-loc="story:${p}">Fly</button></div>`}
+    else if(p>last)story+=`<div class="loc"><div><b>All sectors of ${s.name} cleared</b><small>Replay them for ore and stars below.</small></div></div>`;
+    const done=[];for(let n=first;n<=Math.min(last,p-1);n++)done.push(`<button class="chip" data-act="fly" data-loc="story:${n}">${n} ${'★'.repeat(stars[n]||0)}</button>`);
+    if(done.length)story+=`<div class="chips">${done.join('')}</div>`}
+  const jobs=sideJobs(id).map(j=>`<div class="loc"><div><b>${j.name}</b><small>${objFor(j.n,j)[2]} Danger level ${j.n}.</small></div><button class="btn alt" data-act="fly" data-loc="side:${j.id}">Fly</button></div>`).join('');
+  showOv(`<div class="kicker">${s.name.toUpperCase()} · DAY ${fr.day} · FUEL ${fr.fuel}/${FUEL_MAX} · CARGO ${Math.floor(cargoUsed())}/${cargoCap()}</div><h2>${s.name}</h2>${sysSvg(id)}
+    <div class="loc"><div><b>${s.station}</b><small>Sell cargo, refuel, shipyard.</small></div><button class="btn alt" data-act="dock">Dock</button></div>
+    ${story?`<div class="kicker" style="margin-top:12px">STORY</div>${story}`:''}
+    <div class="kicker" style="margin-top:12px">JOBS TODAY</div>${jobs}
+    <div class="loc"><div><b>Jump gate</b><small>Travel to other star systems (1 fuel per jump, 1 day passes).</small></div><button class="btn alt" data-act="galaxy">Galaxy map</button></div>`)}
+function galaxyNear(){const seen=new Set([fr.sys]),q=[[fr.sys,0]];while(q.length){const[id,d]=q.shift();if(d>=3)continue;for(const l of sysLinks(id))if(!seen.has(l)&&getSys(l)&&(fr.visited.includes(l)||fr.visited.includes(id))){seen.add(l);q.push([l,d+1])}}return[...seen]}
+function showGalaxy(){state='galaxy';genNeighbors(fr.sys);const ids=galaxyNear(),sys=ids.map(getSys),W=340,H=220,pad=34;
+  const xs=sys.map(s=>s.x),ys=sys.map(s=>s.y),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys),k=Math.min((W-2*pad)/Math.max(.5,x1-x0),(H-2*pad)/Math.max(.5,y1-y0),120);
+  const P=s=>[W/2+(s.x-(x0+x1)/2)*k,H/2+(s.y-(y0+y1)/2)*k];let g='';const drawn=new Set();
+  for(const s of sys)for(const l of sysLinks(s.id)){if(!ids.includes(l))continue;const key=[s.id,l].sort().join();if(drawn.has(key))continue;drawn.add(key);const[a,b]=[P(s),P(getSys(l))],open=sysUnlocked(s.id)&&sysUnlocked(l);
+    g+=`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${open?'rgba(127,232,255,.45)':'rgba(255,90,90,.35)'}" stroke-width="2" ${open?'':'stroke-dasharray="5 5"'}/>`}
+  for(const s of sys){const[x,y]=P(s),here=s.id===fr.sys,vis=fr.visited.includes(s.id);
+    g+=`<circle cx="${x}" cy="${y}" r="${here?11:8}" fill="hsl(${s.hue},85%,${vis?62:35}%)" stroke="${here?'#fff':'none'}" stroke-width="2"/>${here?`<circle cx="${x}" cy="${y}" r="17" fill="none" stroke="#fff" stroke-opacity=".4"/>`:''}
+      <text x="${x}" y="${y+22}" fill="${vis?'#cfe0f5':'#6a7890'}" font-size="9.5" text-anchor="middle">${vis?s.name:'Uncharted'}</text>`}
+  const cards=sysLinks(fr.sys).filter(getSys).map(l=>{const s=getSys(l),open=sysUnlocked(l),kn=fr.known[l],vis=fr.visited.includes(l);
+    const pays=kn?TYPE_KEYS.map(k=>[k,kn.p[k]/TYPES[k].val]).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k])=>TYPES[k].name).join(', '):'';
+    return`<div class="loc"><div><b>${vis?s.name:'Uncharted system'}</b><small>${!open?lockText(l):vis?(pays?`Pays well for: ${pays} (seen day ${kn.day})`:'Visited'):'Nobody knows what’s out there.'}${!HOME[l]?` · danger ${sysN(l)}`:''}</small></div>
+      <button class="btn ${open?'':'alt'}" data-act="jump" data-id="${l}" ${open&&fr.fuel>=1?'':'disabled'}>Jump</button></div>`}).join('');
+  showOv(`<div class="kicker">GALAXY MAP · DAY ${fr.day} · FUEL ${fr.fuel}/${FUEL_MAX}</div><h2>Jump gate · ${getSys(fr.sys).name}</h2>
+    <svg viewBox="0 0 ${W} ${H}" class="sysmap" aria-hidden="true">${g}</svg>${cards}
+    ${fr.fuel<1?'<p style="color:#ff7a5a">Out of fuel. Dock at the station to refuel.</p>':''}
+    ${!frontierOpen()?`<div class="help">Beat the boss of each system to open the gate to the next one. Past the Frozen Halo, the galaxy goes on forever.</div>`:''}
+    <div class="btns"><button class="btn alt" data-act="sysmap">Back</button></div>`)}
+// decorative field behind the map screens, in the system's colours
+function setupFieldPreview(s){const n=HOME[s.id]?s.r*10+3:LAST_SECTOR+1;setupField(n,false);nebula=makeNebula(s.hue,1)}
+function findLoc(code){const[k,v]=code.split(':');if(k==='story')return storyLoc(+v);return sideJobs(fr.sys).find(j=>j.id===v)}
+const FR_ACT={
+  dock:()=>showStation(),undock:()=>showSystem(),sysmap:()=>showSystem(),galaxy:()=>showGalaxy(),
+  jump:D=>jumpTo(D.id),
+  fly:D=>{const L=findLoc(D.loc);if(L)showBrief(L)},
+  sell:D=>{const t=sellOre(D.k);if(t)toast(`Sold ${TYPES[D.k].name} for ${fmt(t)} cr`);showStation()},
+  sellall:()=>{sellAll();showStation()},
+  refuel:()=>{const need=FUEL_MAX-fr.fuel,can=Math.min(need,Math.floor(credits/fuelPrice()));if(can>0){credits-=can*fuelPrice();fr.fuel+=can;sfx.buy();saveGame()}showStation()},
+  salvage:D=>{const k=D.k,v=Math.min(+D.v,holdRoom());fr.cargo[k]=(fr.cargo[k]||0)+v;sfx.pu();saveGame();toast(`+${v} ${TYPES[k].name} in your hold`);showSystem()},
+  ambushFight:()=>{const id=fr.sys;startFlight({kind:'ambush',n:sysN(id),mission:'ambush',name:'Pirate ambush',hue:getSys(id).hue})},
+  refuelShop:()=>{FR_ACT.refuel();showShop()},
+  ambushPay:()=>{for(const k in fr.cargo){fr.cargo[k]*=.75;if(fr.cargo[k]<.01)delete fr.cargo[k]}saveGame();toast('The pirates take their cut and fly off laughing.');showSystem()},
+};
+
 (function migrate(){if(store.get(SAVE))return;const o=store.get('orerush_save');if(!o)return;resetProgress();
   level=o.level;credits=o.credits;score=o.score;lives=o.lives;const ou=o.upg||{};['engine','shield','hull','magnet','missile'].forEach(k=>upg[k]=ou[k]||0);
   wl.blaster=Math.min(5,Math.max(ou.blaster||0,ou.rate||0,ou.spread||0));computeStats();hull=Math.min(o.hull??S.hullMax,S.hullMax);saveGame()})();
@@ -544,7 +766,10 @@ function pickType(n){const w=typeWeights(n);
 function bestType(n){return n>=31?pick(['cryo','void','plasma']):n>=21?pick(['void','plasma','crystal']):n>=11?pick(['plasma','crystal','gold']):n>=4?pick(['crystal','gold']):'gold'}
 function randomSpot(minD){let x,y,t=0;do{x=rand(-HALF+90,HALF-90);y=rand(-HALF+90,HALF-90);t++}while(Math.hypot(x,y)<minD&&t<60);return[x,y]}
 function spawnRandomAsteroid(tier,atEdge){const n=level;let x,y;
-  if(atEdge){let t=0;do{const s=Math.floor(Math.random()*4),p=rand(-HALF+80,HALF-80),e=HALF-80;[x,y]=[[p,-e],[e,p],[p,e],[-e,p]][s];t++}while(ship&&Math.hypot(x-ship.x,y-ship.y)<450&&t<20)}
+  if(atEdge&&ship&&WORLD>3000){const a=rand(0,TAU),d=rand(700,1050);x=clamp(ship.x+Math.cos(a)*d,-HALF+90,HALF-90);y=clamp(ship.y+Math.sin(a)*d,-HALF+90,HALF-90)}
+  else if(atEdge){let t=0;do{const s=Math.floor(Math.random()*4),p=rand(-HALF+80,HALF-80),e=HALF-80;[x,y]=[[p,-e],[e,p],[p,e],[-e,p]][s];t++}while(ship&&Math.hypot(x-ship.x,y-ship.y)<450&&t<20)}
+  else if(clusters.length){let t=0;do{const c=pick(clusters),a=rand(0,TAU),d=Math.sqrt(Math.random())*420;x=c.x+Math.cos(a)*d;y=c.y+Math.sin(a)*d;t++}while((Math.abs(x)>HALF-90||Math.abs(y)>HALF-90||Math.hypot(x,y)<360)&&t<30);
+    x=clamp(x,-HALF+90,HALF-90);y=clamp(y,-HALF+90,HALF-90)}
   else[x,y]=randomSpot(360);
   const type=pickType(n);let kind='rock';const rv=Math.random();
   if(tier>=2){if(n>=8&&rv<(n>=11?.17:.07))kind='volatile';else if(n>=12&&rv<.32)kind='dense'}
@@ -564,18 +789,22 @@ function buildSpawnQueue(n,m){const q=[];
 const enemyPool=n=>['drone','drone',...(n>=7?['kamikaze','kamikaze']:[]),...(n>=11?['gunship']:[]),...(n>=14?['minelayer']:[]),...(n>=31?['sniper']:[]),...(n>=33?['medic']:[])];
 
 function setupField(n,withShip){
-  WORLD=Math.min(2800,1800+n*55);HALF=WORLD/2;
+  const m0=withShip&&cur?cur.mission:'clear';
+  WORLD=m0==='boss'?Math.min(2800,1800+n*55):m0==='ambush'?2600:Math.min(5000,3200+n*45);HALF=WORLD/2;clusters=[];
   asteroids=[];bullets=[];ebullets=[];missiles=[];enemies=[];ores=[];pus=[];mines=[];holes=[];blasts=[];arcs=[];parts=[];texts=[];rig=null;beam=null;storm=null;lode=null;frost=[];stolen=0;
-  const R=REGIONS[regionOf(n)],hue=R.hues[n%5]+rand(-10,10);nebula=makeNebula(hue,R.dim);planet=makePlanet((hue+150)%360);planetPos={x:rand(.6,.85),y:rand(.18,.4)};
-  mission=withShip?missionOf(n):'clear';
-  let big,med;
+  const R=REGIONS[regionOf(n)],hue=(withShip&&cur&&cur.hue!=null?cur.hue:R.hues[n%5])+rand(-10,10);nebula=makeNebula(hue,R.dim);planet=makePlanet((hue+150)%360);planetPos={x:rand(.6,.85),y:rand(.18,.4)};
+  mission=withShip?(cur?cur.mission:missionOf(n)):'clear';
+  {const kc=3+Math.floor(WORLD/1600);for(let i=0;i<kc;i++){const[x,y]=randomSpot(450);clusters.push({x,y})}}
+  const sc=WORLD>3000?1.5:1;let big,med;
   if(mission==='boss'){big=Math.min(8,3+Math.floor(n/4));med=2}
   else if(mission==='quota'){big=Math.min(12,6+Math.floor(n/4));med=3}
   else if(mission==='defend'||mission==='escort'){big=Math.min(9,4+Math.floor(n/5));med=2}
   else if(mission==='storm'){big=Math.min(12,6+Math.floor(n/4));med=3}
   else if(mission==='lode'){big=Math.min(8,3+Math.floor(n/5));med=2}
+  else if(mission==='ambush'){big=2;med=3}
   else{big=n<=10?Math.min(13,3+Math.floor(n*.95)):Math.min(16,7+Math.floor(n*.35));med=Math.min(8,Math.floor(n/2))}
-  for(let i=0;i<big;i++)spawnRandomAsteroid(3);for(let i=0;i<med;i++)spawnRandomAsteroid(2);
+  if(mission!=='boss'&&mission!=='ambush'){big=Math.round(big*sc);med=Math.round(med*sc)}
+  for(let i=0;i<big;i++){const a=spawnRandomAsteroid(3);if(mission==='clear'&&withShip)a.goal=true}for(let i=0;i<med;i++)spawnRandomAsteroid(2);
   if(n>=3&&Math.random()<.65||n>=15){const[x,y]=randomSpot(400);asteroids.push(makeAsteroid(x,y,1,'gold',rand(-30,30),rand(-30,30),'cache'))}
   const epath=mission==='escort'?escortPath():null,offPath=(x,y)=>!epath||epath.every((q,i)=>!i||segDist(x,y,epath[i-1][0],epath[i-1][1],q[0],q[1])>380);
   const nh=n>=21?2:n>=13?1:0;for(let i=0;i<nh;i++){let x,y,t=0;do{[x,y]=randomSpot(560);t++}while((holes.some(h=>Math.hypot(h.x-x,h.y-y)<700)||!offPath(x,y))&&t<40);holes.push({x,y,core:30,range:430,rot:rand(0,TAU)})}
@@ -583,7 +812,8 @@ function setupField(n,withShip){
   if(regionOf(n)===3||(n>LAST_SECTOR&&Math.random()<.4)){const k=2+(Math.random()<.5?1:0);for(let i=0;i<k;i++){let x,y,t=0;do{[x,y]=randomSpot(380);t++}while(frost.some(f=>Math.hypot(f.x-x,f.y-y)<560)&&t<30);frost.push({x,y,r:rand(200,290),t:rand(0,TAU)})}}
   if(withShip){
     spawnQ=mission==='defend'||mission==='escort'?[]:buildSpawnQueue(n,mission);spawnT=rand(5,8);
-    if(mission==='boss')enemies.push(makeEnemy(bossOf(n),0,-HALF*.62));
+    if(mission==='boss')enemies.push(makeEnemy(curBoss(),0,-HALF*.62));
+    if(mission==='ambush'){spawnQ=[];const k=Math.min(8,3+Math.floor(n/6));for(let i=0;i<k;i++)spawnQ.push(pick(enemyPool(n).filter(e=>e!=='minelayer')));spawnT=1.2}
     if(mission==='quota'){quota=quotaOf(n);quotaGot=0;missionT=100;refillT=0}
     if(mission==='defend'){missionT=defendTime(n);const hp=320+n*22;rig={x:0,y:0,r:42,hp,maxhp:hp,oreT:2.5};spawnT=6}
     if(mission==='escort'){let total=0;for(let i=1;i<epath.length;i++)total+=Math.hypot(epath[i][0]-epath[i-1][0],epath[i][1]-epath[i-1][1]);const hp=360+n*24;
@@ -595,7 +825,7 @@ function setupField(n,withShip){
   }
   ship=withShip?{x:0,y:mission==='defend'?150:0,vx:0,vy:0,a:-Math.PI/2,thrusting:false,fireT:0,missT:1.5,inv:2,dead:false,respawn:0,lastHit:9,contactT:0,shieldFlash:0,
     pu:{rapid:0,over:0,magnet:0,double:0},chill:0,combo:0,comboT:0,wings:[{x:0,y:0,fireT:.5},{x:0,y:0,fireT:.8}]}:null;
-  if(ship)[ship.x,ship.y]=spawnPos();cam.x=ship?ship.x:0;cam.y=ship?ship.y:0;levelTime=0;clearT=-1;failT=-1;shake=0;banner=null}
+  if(ship)[ship.x,ship.y]=spawnPos();cam.x=ship?ship.x:0;cam.y=ship?ship.y:0;levelTime=0;clearT=-1;exitGate=null;failT=-1;shake=0;banner=null}
 
 function segDist(px,py,ax,ay,bx,by){const vx=bx-ax,vy=by-ay,l2=vx*vx+vy*vy||1,t=clamp(((px-ax)*vx+(py-ay)*vy)/l2,0,1);return Math.hypot(px-ax-vx*t,py-ay-vy*t)}
 // escort route: from one side of the field to a jump gate on the other, with two bends
@@ -617,7 +847,7 @@ function crackLode(a){const n=level,T=TYPES[a.type];explode(a.x,a.y,a.r*.8,T.vei
   enemies.forEach(e=>{if(!e.dead)killEnemy(e)});winLevel()}
 
 function startLevel(){computeStats();shield=S.shieldMax;hull=Math.min(hull,S.hullMax);
-  levelStats={ore:{},oreVal:{},earned:0,rocks:0,kills:0,damaged:false,deaths:0,bonus:0};TYPE_KEYS.forEach(k=>{levelStats.ore[k]=0;levelStats.oreVal[k]=0});
+  levelStats={cash:0,lost:0,ore:{},oreVal:{},earned:0,rocks:0,kills:0,damaged:false,deaths:0,bonus:0};TYPE_KEYS.forEach(k=>{levelStats.ore[k]=0;levelStats.oreVal[k]=0});
   setupField(level,true);state='play';hideOv();sfx.warp();if(mission==='boss')setTimeout(()=>{if(state==='play')sfx.bossIntro()},700);document.body.classList.add('playing');updateActBtns()}
 
 // ================= entities =================
@@ -680,7 +910,8 @@ function hurt(d,quiet){if(!ship||ship.dead||ship.inv>0)return;ship.lastHit=0;
   if(shield>0){const ab=Math.min(shield,d);shield-=ab;d-=ab;ship.shieldFlash=1;if(shield<=0&&!quiet){sfx.shieldDown();buzz([30,30,30],'sd',300)}}
   if(d>0){hull-=d;levelStats.damaged=true;if(!quiet){sfx.hurt();buzz(Math.round(Math.min(60,20+d*1.5)),'h',120)}}else if(!quiet){sfx.shield();buzz(12,'s',150)}
   if(!quiet)shake=Math.max(shake,6);if(hull<=0){hull=0;die()}}
-function die(){ship.dead=true;ship.respawn=2.6;lives--;levelStats.deaths++;explode(ship.x,ship.y,70,'#5ef0ff');sfx.boom(true);sfx.lost();buzz([90,50,160],'die',500);shake=25;laserSound(false);beam=null}
+function die(){if(fr&&cargoUsed()>0){let lost=0;for(const k in fr.cargo){const l=fr.cargo[k]*.3;fr.cargo[k]-=l;lost+=l;if(fr.cargo[k]<.01)delete fr.cargo[k]}levelStats.lost+=lost;floatText(ship.x,ship.y-30,'CARGO LOST','#ff7a5a',16)}
+  ship.dead=true;ship.respawn=2.6;lives--;levelStats.deaths++;explode(ship.x,ship.y,70,'#5ef0ff');sfx.boom(true);sfx.lost();buzz([90,50,160],'die',500);shake=25;laserSound(false);beam=null}
 function hurtRig(d){if(!rig||rig.dead||failT>=0||clearT>=0)return;rig.hp-=d;rig.flash=1;if(rig.hp<=0){rig.hp=0;explode(rig.x,rig.y,120,'#ffc845');sfx.boom(true);shake=26;failLevel(rig.hauler?'The hauler was destroyed.':'The mining rig was destroyed.');rig.dead=true}}
 
 function damageRock(a,d,hx,hy){if(a.dead)return;a.hp-=d;a.flash=1;sfx.hit();const T=TYPES[a.type];
@@ -867,12 +1098,13 @@ function update(dt){
     if(rig&&!rig.dead&&(b.x-rig.x)**2+(b.y-rig.y)**2<rig.r*rig.r){b.dead=true;hurtRig(b.dmg*.7);sparks(b.x,b.y,5,'#ffe0a0',100)}}
   bullets=bullets.filter(b=>!b.dead);ebullets=ebullets.filter(b=>!b.dead);missiles=missiles.filter(m=>!m.dead);
   // ore & power-ups
-  const vac=clearT>=0,mr=magnetR();
+  const vac=false,mr=magnetR(),room=mission==='quota'||holdRoom()>=1;
+  if(!room&&playing&&ship&&!ship.dead&&ores.some(o=>Math.hypot(o.x-ship.x,o.y-ship.y)<mr)&&!thr('hold',2500))banner={txt:'HOLD FULL · SELL AT A STATION',col:'#ff9a3c',t:0};
   for(const o of ores){if(o.dead)continue;o.t+=dt;o.a+=o.va*dt;o.vx*=1-1.2*dt;o.vy*=1-1.2*dt;
     for(const h of holes){const dx=h.x-o.x,dy=h.y-o.y,d=Math.hypot(dx,dy);if(d<h.range){const f=300*Math.pow(1-d/h.range,1.4);o.vx+=dx/d*f*dt;o.vy+=dy/d*f*dt;if(d<h.core)o.dead=true}}
     if(ship&&!ship.dead&&playing){const dx=ship.x-o.x,dy=ship.y-o.y,d=Math.hypot(dx,dy)||1;
-      if(vac||d<mr){const f=vac?1500:900*(1-d/mr)+260;o.vx+=dx/d*f*dt;o.vy+=dy/d*f*dt}
-      if(d<S.r+10){o.dead=true;collectOre(o)}}
+      if(room&&(vac||d<mr)){const f=vac?1500:900*(1-d/mr)+260;o.vx+=dx/d*f*dt;o.vy+=dy/d*f*dt}
+      if(room&&d<S.r+10){o.dead=true;collectOre(o)}}
     o.x+=o.vx*dt;o.y+=o.vy*dt;o.x=clamp(o.x,-HALF,HALF);o.y=clamp(o.y,-HALF,HALF);if(o.t>26&&!vac)o.dead=true}
   ores=ores.filter(o=>!o.dead);
   for(const p of pus){p.t+=dt;p.vx*=1-1.5*dt;p.vy*=1-1.5*dt;
@@ -880,7 +1112,7 @@ function update(dt){
     p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.t>18&&!vac)p.dead=true}
   pus=pus.filter(p=>!p.dead);
   // end conditions
-  if(playing){if(clearT>=0){clearT+=dt;if((clearT>2.4&&ores.length===0&&pus.length===0)||clearT>5){ores.forEach(collectOre);ores=[];pus.forEach(collectPU);pus=[];endLevel()}}
+  if(playing){if(clearT>=0){clearT+=dt;if(exitGate){exitGate.t+=dt;if(ship&&!ship.dead&&Math.hypot(ship.x-exitGate.x,ship.y-exitGate.y)<exitGate.r+S.r){pus.forEach(collectPU);pus=[];sfx.jump();endLevel()}}}
     if(failT>=0){failT+=dt;if(failT>2.2)showFail()}}
 }
 function plasmaBurst(b){explode(b.x,b.y,b.rad*.45,'#9dff5a');addPart({k:'ring',x:b.x,y:b.y,vx:0,vy:0,life:.4,max:.4,size:b.rad,color:'#9dff5a'});
@@ -890,9 +1122,10 @@ function plasmaBurst(b){explode(b.x,b.y,b.rad*.45,'#9dff5a');addPart({k:'ring',x
 
 function collectOre(o){const T=TYPES[o.type];let mult=1;
   if(ship){ship.combo=ship.comboT>0?ship.combo+1:1;ship.comboT=1.6;mult=1+Math.min(2,Math.floor(ship.combo/8)*.25);if(ship.pu.double>0)mult*=2;if(storm&&storm.out)mult*=2}
-  const v=Math.round(T.val*S.refine*mult);credits+=v;score+=v;
-  if(levelStats){levelStats.earned+=v;levelStats.ore[o.type]++;levelStats.oreVal[o.type]+=v}if(mission==='quota'&&state==='play')quotaGot+=v;
-  floatText(o.x,o.y,'+'+v,T.ore);sfx.pick();addPart({k:'flash',x:o.x,y:o.y,vx:0,vy:0,life:.2,max:.2,size:22,color:T.ore})}
+  const v=Math.round(T.val*S.refine*mult),cash=mission==='quota';
+  if(cash){credits+=v;score+=v}else fr.cargo[o.type]=(fr.cargo[o.type]||0)+Math.min(mult,Math.max(0,holdRoom()));
+  if(levelStats){levelStats.earned+=v;levelStats.ore[o.type]++;levelStats.oreVal[o.type]+=v;if(cash)levelStats.cash+=v}if(mission==='quota'&&state==='play')quotaGot+=v;
+  floatText(o.x,o.y,cash?'+'+v:'+'+T.name,T.ore,cash?15:12);sfx.pick();addPart({k:'flash',x:o.x,y:o.y,vx:0,vy:0,life:.2,max:.2,size:22,color:T.ore})}
 function collectPU(p){const P=PU[p.type];sfx.pu();if(!ship)return;
   if(p.type==='shield'){shield=S.shieldMax;hull=Math.min(S.hullMax,hull+S.hullMax*.15);ship.shieldFlash=1}
   else if(p.type==='bomb'){bombs=Math.min(5,bombs+1);updateActBtns()}else ship.pu[p.type]=12;
@@ -900,16 +1133,17 @@ function collectPU(p){const P=PU[p.type];sfx.pu();if(!ship)return;
 
 function edgePoint(minD){let x,y,t=0;do{const s=Math.floor(Math.random()*4),p=rand(-HALF+60,HALF-60),e=HALF-60;[x,y]=[[p,-e],[e,p],[p,e],[-e,p]][s];t++}
   while(ship&&Math.hypot(x-ship.x,y-ship.y)<minD&&t<20);return[x,y]}
-function spawnEnemyKind(kind){const[x,y]=edgePoint(550);const grp=kind==='kamikaze'?2+(Math.random()<.4?1:0):1;
+function spawnEnemyKind(kind){let x,y;if(WORLD>3000){const T=rig&&!rig.dead?rig:ship&&!ship.dead?ship:{x:0,y:0},a=rand(0,TAU),d=rand(850,1100);x=clamp(T.x+Math.cos(a)*d,-HALF+60,HALF-60);y=clamp(T.y+Math.sin(a)*d,-HALF+60,HALF-60)}else[x,y]=edgePoint(550);const grp=kind==='kamikaze'?2+(Math.random()<.4?1:0):1;
   for(let i=0;i<grp;i++)enemies.push(makeEnemy(kind,x+rand(-40,40),y+rand(-40,40)));sfx.warpIn();
   addPart({k:'ring',x,y,vx:0,vy:0,life:.7,max:.7,size:80,color:'#c77dff'});addPart({k:'flash',x,y,vx:0,vy:0,life:.4,max:.4,size:60,color:'#c77dff'})}
 
 function updateMission(dt){const n=level;
-  if(spawnQ.length&&clearT<0&&failT<0){spawnT-=dt;if(spawnT<=0){spawnT=rand(4,8)*Math.max(.45,1-n*.02);spawnEnemyKind(spawnQ.shift())}}
+  if(spawnQ.length&&clearT<0&&failT<0){spawnT-=dt;if(spawnT<=0){spawnT=mission==='ambush'?rand(.8,1.8):rand(4,8)*Math.max(.45,1-n*.02);spawnEnemyKind(spawnQ.shift())}}
   if(clearT>=0||failT>=0)return;
   if(mission==='clear'||mission==='boss'){
     const bossAlive=enemies.some(e=>e.boss);
-    if(mission==='boss'?(!bossAlive&&enemies.length===0):(asteroids.length===0&&enemies.length===0&&spawnQ.length===0)){if(ship&&!ship.dead)winLevel()}}
+    if(mission==='boss'?(!bossAlive&&enemies.length===0):(!asteroids.some(a=>a.goal)&&enemies.length===0&&spawnQ.length===0)){if(ship&&!ship.dead)winLevel()}}
+  else if(mission==='ambush'){if(enemies.length===0&&spawnQ.length===0&&ship&&!ship.dead)winLevel()}
   else if(mission==='quota'){missionT-=dt;refillT-=dt;
     if(refillT<=0&&asteroids.filter(a=>a.tier>=2).length<7){refillT=1.2;spawnRandomAsteroid(3,true)}
     if(quotaGot>=quota)winLevel();else if(missionT<=0){missionT=0;failLevel('The quota was not met in time.')}
@@ -942,7 +1176,7 @@ function lightning(x,y){const R=72;arcs.push({pts:jag(x+rand(-120,120),y-760,x,y
   areaDamage(x,y,R,14+level*.8,.4,0);const near=ship&&!ship.dead?Math.hypot(ship.x-x,ship.y-y):9999;
   if(near<R+S.r)hurt(16+level*.6);else if(near<300)buzz(20,'lt',150);sfx.thunder(near<500);shake=Math.max(shake,near<400?10:4)}
 function wardenPylons(h){for(let i=0;i<4;i++){const p=makeEnemy('pylon',h.x,h.y);p.host=h;p.ang=i/4*TAU+h.spin;enemies.push(p)}addPart({k:'ring',x:h.x,y:h.y,vx:0,vy:0,life:.7,max:.7,size:160,color:'#7fe8ff'})}
-function winLevel(){clearT=0;sfx.clear();ebullets=[];laserSound(false);beam=null}
+function winLevel(){clearT=0;sfx.clear();ebullets=[];laserSound(false);beam=null;openExitGate()}
 function failLevel(r){if(failT>=0||clearT>=0)return;failT=0;failReason=r;sfx.fail();laserSound(false);beam=null}
 
 // ================= enemies =================
@@ -1079,6 +1313,7 @@ function render(t){
   // enemies
   for(const e of enemies){if(!vis(e.x,e.y)&&!e.bm&&!(e.aim>0)&&!e.beamOn)continue;drawEnemy(e,t)}
   // ship
+  if(exitGate)drawExitGate(t);
   if(ship&&!ship.dead)drawShip(t);
   // additive fx
   ctx.globalCompositeOperation='lighter';
@@ -1235,19 +1470,22 @@ function bar(x,y,w,h,v,c1,c2,label){ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect
   ctx.font='700 9px Orbitron';ctx.fillStyle='rgba(255,255,255,.8)';ctx.textAlign='left';ctx.fillText(label,x+5,y+h-3)}
 const mmss=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
 function drawHUD(t){const m=12,small=SW<500,w=small?132:184;
-  ctx.font=`700 ${small?10:12}px Orbitron`;ctx.textAlign='left';ctx.fillStyle='#8fb6c9';ctx.fillText(`SECTOR ${level} · ${REGIONS[regionOf(level)].name.toUpperCase()}`,m,m+11);
+  ctx.font=`700 ${small?10:12}px Orbitron`;ctx.textAlign='left';ctx.fillStyle='#8fb6c9';ctx.fillText(cur&&cur.kind!=='story'?`${cur.name.toUpperCase()} · ${getSys(fr.sys).name.toUpperCase()}`:`SECTOR ${level} · ${(fr?getSys(fr.sys).name:REGIONS[regionOf(level)].name).toUpperCase()}`,m,m+11);
   ctx.fillStyle='#ffc845';ctx.font=`700 ${small?17:21}px Orbitron`;ctx.fillText(fmt(credits)+' cr',m,m+35);
+  if(fr){const u=cargoUsed(),c=cargoCap();ctx.font=`700 ${small?9:10}px Orbitron`;ctx.fillStyle=u>=c?'#ff7a5a':'#9fdcff';ctx.textAlign='right';ctx.fillText(`CARGO ${Math.floor(u)}/${c}`,m+w,m+35);ctx.textAlign='left'}
   bar(m,m+44,w,12,hull/S.hullMax,hull/S.hullMax<.3?'#ff3b3b':'#ff8a3d',hull/S.hullMax<.3?'#ff7a5a':'#ffc845','HULL');
   bar(m,m+60,w,12,shield/S.shieldMax,'#1e8fd8','#5ef0ff','SHIELD');
   for(let i=0;i<lives;i++){ctx.save();ctx.translate(m+8+i*18,m+88);ctx.rotate(-Math.PI/2);ctx.fillStyle='#c8d3e2';ctx.beginPath();ctx.moveTo(8,0);ctx.lineTo(-6,-6);ctx.lineTo(-3,0);ctx.lineTo(-6,6);ctx.closePath();ctx.fill();ctx.restore()}
   // mission line
-  let ml='';if(mission==='clear')ml=`Rocks ${asteroids.length}${enemies.length||spawnQ.length?' · Hostiles '+(enemies.length+spawnQ.length):''}`;
+  let ml='';if(mission==='clear')ml=`Big rocks ${asteroids.filter(a=>a.goal).length}${enemies.length||spawnQ.length?' · Hostiles '+(enemies.length+spawnQ.length):''}`;
+  else if(mission==='ambush')ml=`Pirate ambush · Hostiles ${enemies.length+spawnQ.length}`;
   else if(mission==='quota')ml=`Quota ${fmt(Math.min(quotaGot,quota))} / ${fmt(quota)} · ${mmss(missionT)}`;
   else if(mission==='defend')ml=`Protect the rig · ${mmss(missionT)}`;
   else if(mission==='escort')ml=`Escort the hauler · ${rig?Math.min(100,Math.floor(rig.done/rig.total*100)):100}%`;
   else if(mission==='storm')ml=`Survive the storm · ${mmss(missionT)}`;
   else if(mission==='lode')ml=lode&&!lode.dead?`Mother Lode · shell ${lode.layer+1} of 3${stolen?' · stolen '+stolen:''}`:'Mother Lode cracked';
-  else ml='Destroy the '+BOSS_NAME[bossOf(level)].toLowerCase();
+  else ml='Destroy the '+BOSS_NAME[curBoss()].toLowerCase();
+  if(exitGate)ml='Fly into the exit gate to leave';
   const timed=mission==='quota'||mission==='defend'||mission==='storm',hasBar=timed||mission==='escort'||mission==='lode';
   ctx.font=`600 ${small?11:12}px "Exo 2"`;ctx.fillStyle=timed&&missionT<10?'#ff7a5a':'#cfe0f5';ctx.fillText(ml,m,m+110);
   if(mission==='escort'&&rig){bar(m,m+116,w,6,rig.hp/rig.maxhp,'#2fc6e0','#8ff8ff','')}
@@ -1268,11 +1506,14 @@ function drawHUD(t){const m=12,small=SW<500,w=small?132:184;
   if(storm&&mission==='storm'){const[x,y]=P(storm.cx,storm.cy);ctx.strokeStyle='rgba(201,179,255,.7)';ctx.beginPath();ctx.arc(x,y,storm.r*k,0,TAU);ctx.stroke()}
   if(rig&&rig.hauler){const g=rig.path[rig.path.length-1],[gx,gy]=P(g[0],g[1]);ctx.strokeStyle='#7fe8ff';ctx.beginPath();ctx.arc(gx,gy,4,0,TAU);ctx.stroke()}
   if(rig&&!rig.dead){const[x,y]=P(rig.x,rig.y);ctx.fillStyle=rig.hauler?'#7fe8ff':'#ffc845';ctx.fillRect(x-3,y-3,6,6)}
+  if(exitGate){const[x,y]=P(exitGate.x,exitGate.y);ctx.strokeStyle='#7fe8ff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,5,0,TAU);ctx.stroke();ctx.lineWidth=1}
+  for(const a of asteroids){if(a.goal){const[x,y]=P(a.x,a.y);ctx.strokeStyle='rgba(255,216,74,.8)';ctx.strokeRect(x-3,y-3,6,6)}}
   for(const a of asteroids){const[x,y]=P(a.x,a.y);ctx.fillStyle=a.kind==='volatile'?'#ff3b1f':a.kind==='cache'?'#ffd84a':TYPES[a.type].vein||'#9a948d';const s=a.kind==='lode'?a.r*k*1.6:a.kind==='cache'?3:a.tier*1.4;ctx.fillRect(x-s/2,y-s/2,s,s)}
   for(const o of ores){const[x,y]=P(o.x,o.y);ctx.fillStyle=TYPES[o.type].ore;ctx.fillRect(x-.5,y-.5,1.2,1.2)}
   for(const p of pus){const[x,y]=P(p.x,p.y);ctx.fillStyle=PU[p.type].c;ctx.fillRect(x-1.5,y-1.5,3,3)}
   for(const e of enemies){const[x,y]=P(e.x,e.y);ctx.fillStyle='#ff4a4a';const s=e.boss?5:2.5;ctx.fillRect(x-s/2,y-s/2,s,s)}
   if(ship&&!ship.dead){const[x,y]=P(ship.x,ship.y);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,2.4,0,TAU);ctx.fill()}
+  drawArrows();
   // combo
   if(ship&&ship.combo>=8){const mult=1+Math.min(2,Math.floor(ship.combo/8)*.25);ctx.textAlign='right';ctx.font=`900 ${small?14:17}px Orbitron`;ctx.fillStyle='#7dff7a';
     ctx.fillText('COMBO ×'+mult.toFixed(2).replace(/0$/,''),SW-m,ry+R+22);ctx.fillStyle='rgba(125,255,122,.6)';ctx.fillRect(SW-m-90*(ship.comboT/1.6),ry+R+28,90*(ship.comboT/1.6),3)}
@@ -1281,10 +1522,10 @@ function drawHUD(t){const m=12,small=SW<500,w=small?132:184;
   if(storm&&storm.out&&clearT<0){ctx.textAlign='center';ctx.font=`900 ${small?12:15}px Orbitron`;ctx.fillStyle=Math.floor(t/300)%2?'#e0d4ff':'#b9a8ff';ctx.fillText('IN THE STORM · ORE ×2 · HULL DAMAGE',SW/2,small?SH-96:SH*.2)}
   ctx.textAlign='center';
   if(banner){const a=Math.min(1,banner.t*4)*Math.min(1,(1.8-banner.t)*3);ctx.globalAlpha=a;ctx.font=`900 ${small?18:24}px Orbitron`;ctx.fillStyle=banner.col;ctx.shadowColor=banner.col;ctx.shadowBlur=14;ctx.fillText(banner.txt,SW/2,SH*.26);ctx.shadowBlur=0;ctx.globalAlpha=1}
-  if(clearT>=0){const a=Math.min(1,clearT*2);ctx.globalAlpha=a;ctx.font=`900 ${small?26:44}px Orbitron`;ctx.fillStyle='#5ef0ff';ctx.shadowColor='#5ef0ff';ctx.shadowBlur=20;
-    ctx.fillText({quota:'QUOTA MET',defend:'RIG SECURED',escort:'HAULER JUMPED',storm:'STORM SURVIVED',lode:'LODE CRACKED'}[mission]||'SECTOR CLEAR',SW/2,SH*.38);ctx.shadowBlur=0;ctx.globalAlpha=1}
+  if(clearT>=0){const a=Math.min(1,clearT*2)*clamp(3.5-clearT,0,1);ctx.globalAlpha=a;ctx.font=`900 ${small?26:44}px Orbitron`;ctx.fillStyle='#5ef0ff';ctx.shadowColor='#5ef0ff';ctx.shadowBlur=20;
+    ctx.fillText({quota:'QUOTA MET',defend:'RIG SECURED',escort:'HAULER JUMPED',storm:'STORM SURVIVED',lode:'LODE CRACKED',ambush:'AMBUSH REPELLED'}[mission]||'SECTOR CLEAR',SW/2,SH*.38);ctx.shadowBlur=0;ctx.globalAlpha=1}
   else if(failT>=0){ctx.font=`900 ${small?24:40}px Orbitron`;ctx.fillStyle='#ff5a5a';ctx.fillText('SECTOR FAILED',SW/2,SH*.38)}
-  else if(levelTime<3.2){const o=objFor(level);ctx.globalAlpha=Math.min(1,(3.2-levelTime));ctx.font=`900 ${small?22:34}px Orbitron`;ctx.fillStyle='#e9f6ff';ctx.fillText('SECTOR '+level,SW/2,SH*.34);
+  else if(levelTime<3.2){const o=objFor(level,cur);ctx.globalAlpha=Math.min(1,(3.2-levelTime));ctx.font=`900 ${small?22:34}px Orbitron`;ctx.fillStyle='#e9f6ff';ctx.fillText(cur&&cur.kind!=='story'?cur.name.split(':')[0].toUpperCase():'SECTOR '+level,SW/2,SH*.34);
     ctx.font=`700 ${small?11:13}px Orbitron`;ctx.fillStyle='#5ef0ff';ctx.fillText(o[1],SW/2,SH*.34+24);ctx.globalAlpha=1}
   if(ship&&ship.dead&&lives>0){ctx.font='700 18px Orbitron';ctx.fillStyle='#ff7a5a';ctx.fillText('SHIP LOST · RESPAWNING',SW/2,SH*.44)}
   if(level===1&&levelTime<9){ctx.globalAlpha=Math.min(1,9-levelTime)*.9;ctx.font='600 13px "Exo 2"';ctx.fillStyle='#cfe0f5';
@@ -1314,51 +1555,64 @@ function showOv(html){if(typeof SY!=='undefined'&&SY.deferred&&canAsk()&&!SY.bus
   ov.innerHTML=`<div class="panel">${html}</div>`;ov.classList.add('show');ov.querySelector('.panel').scrollTop=0;document.body.classList.remove('playing','paused');laserSound(false)}
 function hideOv(){ov.classList.remove('show');ov.innerHTML='';document.body.classList.remove('paused')}
 const totalStars=()=>Object.values(stars).reduce((s,v)=>s+v,0);
+// the real game's save (same website, keys without the dev_ prefix); read only, never written
+function realSave(){if(!DEV)return null;try{const sv=JSON.parse(localStorage.getItem('orerush2_save'));return sv&&sv.v===2?sv:null}catch(e){return null}}
 function showTitle(){state='title';level=Math.max(1,level);setupField(2+Math.floor(Math.random()*3),false);const sv=store.get(SAVE);
-  showOv(`<h1>ORE RUSH</h1><div class="sub">DEEP-SPACE MINING</div>
-  <p style="text-align:center">Blast asteroids, grab the ore, fight pirates, and build up your ship across 40 sectors and four regions. After that, the Endless Deep.</p>
-  <div class="btns">${sv?`<button class="btn" data-act="continue">Continue · Sector ${sv.level}${sv.stars?` · ${Object.values(sv.stars).reduce((s,v)=>s+v,0)}★`:''}</button>`:''}<button class="btn ${sv?'alt':''}" data-act="new">New game</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button>${installEvt?'<button class="btn alt" data-act="install">Install as app</button>':''}<button class="btn alt" data-act="cloud">☁ Cloud save <span id="syncSt" style="display:block;font-family:'Exo 2';font-size:12px;font-weight:600;letter-spacing:0;color:#93a8c6;margin-top:3px">${SC.token?syncStatus():'Not connected'}</span></button><button class="btn alt" data-act="reload">⟳ Reload latest version</button>${canVibe?'<button class="btn alt" data-act="vtest">📳 Test vibration</button><div id="vmsg" class="help" style="margin-top:0"></div>':''}</div>
-  <div class="help" style="margin-top:10px;font-family:Orbitron;letter-spacing:.12em">BUILD ${BUILD}</div>
+  showOv(`<h1>ORE RUSH</h1><div class="sub">DEEP-SPACE MINING${DEV?' · <span style="color:#ff8a3d">TEST VERSION</span>':''}</div>
+  <p style="text-align:center">Mine asteroids, fill your cargo hold, sell where prices are best, fight pirates and jump between star systems. Four systems to conquer, and an endless frontier beyond.</p>
+  <div class="btns">${sv?`<button class="btn" data-act="continue">Continue · Sector ${sv.level}${sv.stars?` · ${Object.values(sv.stars).reduce((s,v)=>s+v,0)}★`:''}</button>`:''}<button class="btn ${sv?'alt':''}" data-act="new">New game</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button>${installEvt?'<button class="btn alt" data-act="install">Install as app</button>':''}<button class="btn alt" data-act="cloud">☁ Cloud save <span id="syncSt" style="display:block;font-family:'Exo 2';font-size:12px;font-weight:600;letter-spacing:0;color:#93a8c6;margin-top:3px">${SC.token?syncStatus():'Not connected'}</span></button><button class="btn alt" data-act="reload">⟳ Reload latest version</button>${DEV&&realSave()?'<button class="btn alt" data-act="copyreal">⇩ Copy my real game into this test version</button>':''}${canVibe?'<button class="btn alt" data-act="vtest">📳 Test vibration</button><div id="vmsg" class="help" style="margin-top:0"></div>':''}</div>
+  <div class="help" style="margin-top:10px;font-family:Orbitron;letter-spacing:.12em">${DEV?'DEV ':''}BUILD ${BUILD}</div>
   <div class="help"><b>Phone:</b> left thumb flies, right thumb aims &amp; fires, buttons at the bottom switch weapon / fire a nova<br>
   <b>Keyboard:</b> arrows / WASD fly · Space fires · Q/E or 1–5 switch weapons · B nova · P pause<br><b>Mouse:</b> hold to aim &amp; fire at the cursor<br><b>♪ button:</b> music + sound → sound only → silent${canVibe?' · <b>📳</b> vibration: normal → strong (📳+) → off':''}
   ${best?`<br><br>Best haul: <span class="credits">${fmt(best)} cr</span>`:''}</div>`)}
-function showBrief(){state='brief';setupField(level,false);const o=objFor(level),R=REGIONS[regionOf(level)];
-  showOv(`<div class="kicker">${R.name.toUpperCase()}${stars[level]?' · BEST '+'★'.repeat(stars[level]):''}</div><h2>Sector ${level}</h2><div class="radio"><b>DISPATCH</b>${briefFor(level)}</div>
+function showBrief(loc){loc=loc||storyLoc(homeProgress());state='brief';const n=loc.n,o=objFor(n,loc),sys=getSys(fr.sys),story=loc.kind==='story';
+  setupFieldPreview(sys);SY.briefLoc=loc;
+  showOv(`<div class="kicker">${sys.name.toUpperCase()}${story&&stars[n]?' · BEST '+'★'.repeat(stars[n]):''}${story?'':' · DANGER '+n}</div><h2>${story?'Sector '+n:loc.name}</h2>
+  <div class="radio"><b>DISPATCH</b>${story?briefFor(n):pick(['Easy money, they said. They always say that.','The client pays on delivery. The pirates pay with lasers.','Standard job. Try not to make it exciting.','Fill the hold, come back alive. In that order is fine.'])}</div>
   <div class="obj"><span class="ic">${o[0]}</span><div><b>${o[1]}</b>${o[2]}</div></div>
-  <div class="rows"><span>Credits</span><span class="v credits">${fmt(credits)} cr</span><span>Hull</span><span class="v" style="color:${hull<S.hullMax*.5?'#ff7a5a':'inherit'}">${Math.round(hull)} / ${S.hullMax}</span>
+  <div class="rows"><span>Credits</span><span class="v credits">${fmt(credits)} cr</span>${holdBar()}<span>Hull</span><span class="v" style="color:${hull<S.hullMax*.5?'#ff7a5a':'inherit'}">${Math.round(hull)} / ${S.hullMax}</span>
   <span>Ships · Novas</span><span class="v">${lives} · ${bombs}</span><span>Weapon</span><span class="v">${WEAPONS.find(w=>w.id===weapon).name} ${wl[weapon]+1}</span></div>
-  <div class="btns"><button class="btn" data-act="launch">Launch</button><button class="btn alt" data-act="shop">Shipyard</button></div>`)}
-function endLevel(){state='summary';const st=levelStats,n=level;let star=1;if(st.deaths===0)star++;if(!st.damaged)star++;
-  const starBonus=(star-1)*15*n;let missionBonus=0;
+  ${loc.mission!=='quota'&&holdRoom()<10?'<p style="color:#ff9a3c">Your hold is almost full. Sell at the station first, or new ore won\u2019t fit.</p>':''}
+  <div class="btns"><button class="btn" data-act="launch">Launch</button><button class="btn alt" data-act="sysmap">Back to the system map</button></div>
+  <div class="help">After the job, an exit gate opens. Fly into it to leave. Leftover ore is yours if you grab it first.</div>`)}
+function endLevel(){state='summary';const st=levelStats,n=level,loc=cur||storyLoc(n),story=loc.kind==='story';let star=1;if(st.deaths===0)star++;if(!st.damaged)star++;
+  const starBonus=story?(star-1)*15*n:0;let missionBonus=0;
   if(mission==='quota')missionBonus=150+n*20+Math.round(missionT*5);if(mission==='defend')missionBonus=Math.round((200+n*25)*(.5+.5*rig.hp/rig.maxhp));
   if(mission==='escort')missionBonus=Math.round((260+n*30)*(.5+.5*rig.hp/rig.maxhp));if(mission==='storm')missionBonus=180+n*24;if(mission==='lode')missionBonus=120+n*18;
-  credits+=starBonus+missionBonus;score+=starBonus+missionBonus;const prevStars=stars[n]||0;stars[n]=Math.max(prevStars,star);
-  const oreSum=TYPE_KEYS.reduce((s,k)=>s+st.oreVal[k],0);
-  const rows=TYPE_KEYS.filter(k=>st.ore[k]).map(k=>`<span><i class="dot" style="background:${TYPES[k].ore};box-shadow:0 0 8px ${TYPES[k].ore}"></i>${TYPES[k].name} × ${st.ore[k]}</span><span class="v">${fmt(st.oreVal[k])}</span>`).join('');
-  const finale=n===LAST_SECTOR,mid=n===30;level++;saveGame();for(let i=0;i<star;i++)sfx.star(i);
-  showOv(`<div class="kicker">${REGIONS[regionOf(n)].name.toUpperCase()}</div><h2>Sector ${n} complete</h2>
-  <div class="stars">${[0,1,2].map(i=>`<span class="${i<star?'on':'off'}">★</span>`).join('')}</div>
-  <div class="starlist">★ Complete &nbsp;·&nbsp; ★ No ships lost &nbsp;·&nbsp; ★ No hull damage</div>
+  if(mission==='ambush')missionBonus=100+n*15;
+  const firstClear=story&&n===homeLevel,sectorReward=firstClear?60+n*30:0;
+  credits+=starBonus+missionBonus+sectorReward;score+=starBonus+missionBonus+sectorReward;
+  const finale=firstClear&&n===LAST_SECTOR,mid=firstClear&&n===30,gate=firstClear&&n%10===0&&n<LAST_SECTOR;
+  if(story)stars[n]=Math.max(stars[n]||0,star);
+  const rows=TYPE_KEYS.filter(k=>st.ore[k]).map(k=>`<span><i class="dot" style="background:${TYPES[k].ore};box-shadow:0 0 8px ${TYPES[k].ore}"></i>${TYPES[k].name} × ${st.ore[k]}</span><span class="v">${mission==='quota'?fmt(st.oreVal[k])+' cr':'in hold'}</span>`).join('');
+  const kind=loc.kind;endFlight();if(firstClear)level=n+1;cur=null;saveGame();if(story)for(let i=0;i<star;i++)sfx.star(i);
+  const next=gate?HOME_SYS[n/10]:null;
+  showOv(`<div class="kicker">${getSys(fr.sys).name.toUpperCase()}</div><h2>${story?'Sector '+n+' complete':kind==='ambush'?'Ambush repelled':'Job done'}</h2>
+  ${story?`<div class="stars">${[0,1,2].map(i=>`<span class="${i<star?'on':'off'}">★</span>`).join('')}</div>
+  <div class="starlist">★ Complete &nbsp;·&nbsp; ★ No ships lost &nbsp;·&nbsp; ★ No hull damage</div>`:''}
+  ${gate?`<div class="radio"><b>DISPATCH</b>Boss down! The jump gate to <b>${next.name}</b> is open. Their station pays different prices, so a full hold of the right ore could be worth a lot more over there.</div>`:''}
   ${mid?`<div class="radio"><b>DISPATCH</b>The flagship is scrap and the belt is ours. But long-range scans picked up something cold and huge out in the Frozen Halo. Gear up.</div>`:''}
-  ${finale?`<div class="radio"><b>DISPATCH</b>You did it. The Frozen Halo is ours. The Endless Deep lies beyond, with harder sectors and richer rock for as long as you last.</div>`:''}
+  ${finale?`<div class="radio"><b>DISPATCH</b>You did it. The Frozen Halo is ours. Beyond its gate lie uncharted systems, as far as you dare to fly. Nobody has mapped them. Yet.</div>`:''}
   <div class="rows">${rows||'<span>No ore recovered</span><span></span>'}
+  ${st.lost>0?`<span>Cargo lost when your ship went down</span><span class="v" style="color:#ff7a5a">${Math.round(st.lost)}</span>`:''}
   ${st.bonus?`<span>Bounty</span><span class="v">${fmt(st.bonus)}</span>`:''}${missionBonus?`<span>Mission bonus</span><span class="v">${fmt(missionBonus)}</span>`:''}
-  ${starBonus?`<span>Star bonus</span><span class="v">${fmt(starBonus)}</span>`:''}
-  <span class="total">Earned</span><span class="v total credits">${fmt(oreSum+st.bonus+missionBonus+starBonus)} cr</span>
+  ${sectorReward?`<span>Sector reward (first clear)</span><span class="v">${fmt(sectorReward)}</span>`:''}${starBonus?`<span>Star bonus</span><span class="v">${fmt(starBonus)}</span>`:''}
+  <span class="total">Paid now</span><span class="v total credits">${fmt(st.bonus+missionBonus+starBonus+sectorReward+st.cash)} cr</span>
+  <span>Cargo hold</span><span class="v">${Math.floor(cargoUsed())} / ${cargoCap()}</span>
   ${stolen?`<span>Ore stolen by scavengers</span><span class="v" style="color:#ff7a5a">${stolen}</span>`:''}
   <span>Asteroids broken</span><span class="v">${st.rocks}</span>${st.kills?`<span>Pirates destroyed</span><span class="v">${st.kills}</span>`:''}</div>
-  <div class="btns"><button class="btn" data-act="shop">To the shipyard</button></div>`)}
-function showFail(){state='failed';saveGameKeepLevel();
-  showOv(`<h2 style="color:#ff7a5a">Sector ${level} failed</h2><p>${failReason} You keep everything you collected.</p>
-  <div class="btns"><button class="btn" data-act="launch">Retry sector</button><button class="btn alt" data-act="shop">Shipyard</button></div>`)}
+  <div class="btns"><button class="btn" data-act="sysmap">Back to the system map</button></div>`)}
+function showFail(){state='failed';const loc=cur;endFlight();saveGame();
+  showOv(`<h2 style="color:#ff7a5a">${loc&&loc.kind!=='story'?'Job failed':'Sector '+(loc?loc.n:level)+' failed'}</h2><p>${failReason} You keep the ore in your hold.</p>
+  <div class="btns"><button class="btn" data-act="retry">Try again</button><button class="btn alt" data-act="sysmap">Back to the system map</button></div>`);SY.retry=loc}
 function saveGameKeepLevel(){saveGame()}
-function gameOver(){state='over';sfx.over();if(score>best){best=score;store.set('orerush_best',best)}const claim=Math.floor(credits*.3);
-  showOv(`<h2 style="color:#ff7a5a">Fleet lost</h2><p>Your last ship went down in sector ${level}.</p>
+function gameOver(){state='over';sfx.over();endFlight();cur=null;if(score>best){best=score;store.set('orerush_best',best)}const claim=Math.floor(credits*.3);
+  showOv(`<h2 style="color:#ff7a5a">Fleet lost</h2><p>Your last ship went down.</p>
   <div class="rows"><span>Total haul</span><span class="v credits">${fmt(score)} cr</span><span>Best haul</span><span class="v">${fmt(best)} cr</span></div>
-  <p>File an insurance claim to get 3 new ships and retry this sector. The insurer keeps 30% of your credits (${fmt(claim)} cr). Your upgrades stay.</p>
-  <div class="btns"><button class="btn warn" data-act="insure">Insurance claim · retry sector ${level}</button><button class="btn alt" data-act="new">Start a new game</button></div>`)}
+  <p>File an insurance claim to get 3 new ships. You wake up docked at the station. The insurer keeps 30% of your credits (${fmt(claim)} cr). Your upgrades and cargo stay.</p>
+  <div class="btns"><button class="btn warn" data-act="insure">Insurance claim</button><button class="btn alt" data-act="new">Start a new game</button></div>`)}
 function pauseGame(){if(state!=='play')return;state='pause';moveStick=aimStick=null;mouse.down=false;
-  showOv(`<h2>Paused</h2><div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn alt" data-act="quit">Abandon sector &amp; quit</button></div><div class="help">Quitting returns you to your last save, at the start of this sector.</div>`);document.body.classList.add('paused')}
+  showOv(`<h2>Paused</h2><div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn alt" data-act="quit">Abandon sector &amp; quit</button></div><div class="help">Quitting returns you to your last save, before this flight.</div>`);document.body.classList.add('paused')}
 function resumeGame(){hideOv();state='play';last=performance.now();document.body.classList.add('playing')}
 
 
@@ -1382,7 +1636,7 @@ function showTransfer(from){transferBack=from;if(from==='shop')saveGame();state=
 function tmsg(t,ok){const m=document.getElementById('tmsg');if(m){m.textContent=t;m.style.color=ok?'#7dff7a':'#ff7a5a'}}
 function importCode(txt){let sv;try{sv=parseCode(txt)}catch(e){tmsg("That code doesn't look like an Ore Rush save.");return}
   if(sv.best&&sv.best>best){best=sv.best;store.set('orerush_best',best)}delete sv.best;store.set(SAVE,sv);loadGame(sv);sfx.buy();
-  tmsg(`Loaded: sector ${sv.level}, ${fmt(sv.credits)} cr.`,true);const go=()=>{level>1?showShop():showBrief()};
+  tmsg(`Loaded: sector ${sv.level}, ${fmt(sv.credits)} cr.`,true);const go=()=>showStation();
   setTimeout(async()=>{if(SC.token&&!SC.paused)await syncImportAsk();go()},900)}
 
 const shipImgCache={};
@@ -1419,12 +1673,13 @@ function showShop(){state='shop';computeStats();const n=level;let cards='';
   else{const miss=Math.ceil(S.hullMax-hull),rep=Math.ceil(miss*1.4),lifeCost=400+n*60,novaCost=220+n*15;
     cards+=`<div class="card ${miss>S.hullMax*.3?'warn':''}"><div class="ct">Hull Repair</div><div class="cd">Hull at ${Math.round(hull)} / ${S.hullMax}.</div><div class="bb"><button data-act="repair" ${miss<=0||credits<=0?'disabled':''}>${miss<=0?'Fully repaired':(credits>=rep?'Repair · '+fmt(rep)+' cr':'Repair what you can')}</button></div></div>`;
     cards+=`<div class="card"><div class="ct">Spare Ship</div><div class="cd">An extra life. You have ${lives} (max 5).</div><div class="bb"><button data-act="life" ${lives>=5||credits<lifeCost?'disabled':''}>${lives>=5?'Max':fmt(lifeCost)+' cr'}</button></div></div>`;
+    cards+=`<div class="card"><div class="ct">Fuel</div><div class="cd">${fr.fuel} / ${FUEL_MAX} jumps. ${fmt(fuelPrice())} cr per jump.</div><div class="bb"><button data-act="refuelShop" ${fr.fuel>=FUEL_MAX||credits<fuelPrice()?'disabled':''}>${fr.fuel>=FUEL_MAX?'Full':'Refuel · '+fmt(fuelPrice()*(FUEL_MAX-fr.fuel))+' cr'}</button></div></div>`;
     cards+=`<div class="card"><div class="ct">Nova Bomb</div><div class="cd">Shockwave that wrecks everything nearby and clears enemy fire. You have ${bombs} (max 5).</div><div class="bb"><button data-act="nova" ${bombs>=5||credits<novaCost?'disabled':''}>${bombs>=5?'Max':fmt(novaCost)+' cr'}</button></div></div>`}
   const miss=hull<S.hullMax*.7;
   showOv(`<div class="shophead"><h2 style="margin:0">Shipyard</h2><span class="credits" style="font-size:20px">${fmt(credits)} cr</span></div>
   <div class="tabs">${[['weapons','Weapons'],['systems','Systems'],['ships','Ships'],['belt','Belt'],['services','Dock'+(miss?' ⚠':'')]].map(([k,l])=>`<button data-tab="${k}" class="${shopTab===k?'on':''}">${l}</button>`).join('')}</div>
   <div class="grid">${cards}</div>
-  <div class="btns"><button class="btn" data-act="next">Continue to sector ${level}</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button><button class="btn alt" data-act="menu">Save &amp; quit to menu</button></div>`)}
+  <div class="btns"><button class="btn" data-act="next">Back to the station</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button><button class="btn alt" data-act="menu">Save &amp; quit to menu</button></div>`)}
 
 ov.addEventListener('click',e=>{initAudio();const b=e.target.closest('button');if(!b||b.disabled)return;const D=b.dataset;
   const keepScroll=()=>{const p=ov.querySelector('.panel'),s=p?p.scrollTop:0;showShop();const p2=ov.querySelector('.panel');if(p2)p2.scrollTop=s};
@@ -1440,15 +1695,17 @@ ov.addEventListener('click',e=>{initAudio();const b=e.target.closest('button');i
   if(D.ship){const d=SHIPS.find(x=>x.id===D.ship);if(credits>=d.cost&&level>=(d.req||0)){credits-=d.cost;ownedShips.push(d.id);shipId=d.id;computeStats();hull=S.hullMax;sfx.buy();saveGame();keepScroll()}return}
   if(D.fly){const ratio=hull/S.hullMax;shipId=D.fly;computeStats();hull=Math.round(S.hullMax*ratio);sfx.buy();saveGame();keepScroll();return}
   const act=D.act;if(SYNC_ACT[act]){SYNC_ACT[act](D);return}if(act==='cloud'){sfx.click();showCloud();return}if(['new','continue','shop','next','tback','resume','quit','menu','transfer'].includes(act))sfx.click();
-  if(act==='new'){resetProgress();store.del(SAVE);showBrief()}
-  else if(act==='continue'){const sv=store.get(SAVE);if(!sv)return showTitle();loadGame(sv);level>1?showShop():showBrief()}
-  else if(act==='launch')startLevel();
+  if(FR_ACT[act]){FR_ACT[act](D);return}
+  if(act==='new'){if(store.get(SAVE)&&!confirm('Start a new game? Your current progress in this version will be replaced.'))return;resetProgress();store.del(SAVE);saveGame();showStation();setTimeout(()=>toast('Welcome to Kessler Station, rookie! Fly a job, fill your hold, sell the ore here.'),400)}
+  else if(act==='continue'){const sv=store.get(SAVE);if(!sv)return showTitle();loadGame(sv);showStation()}
+  else if(act==='launch'){if(SY.briefLoc)startFlight(SY.briefLoc)}
+  else if(act==='retry'){if(SY.retry)showBrief(SY.retry)}
   else if(act==='shop')showShop();
-  else if(act==='next'){saveGame();showBrief()}
+  else if(act==='next'){saveGame();showStation()}
   else if(act==='repair'){const miss=S.hullMax-hull,rep=Math.ceil(miss*1.4);if(credits>=rep){credits-=rep;hull=S.hullMax}else{hull+=credits/1.4;credits=0}sfx.buy();saveGame();keepScroll()}
   else if(act==='life'){const c=400+level*60;if(credits>=c&&lives<5){credits-=c;lives++;sfx.buy();saveGame();keepScroll()}}
   else if(act==='nova'){const c=220+level*15;if(credits>=c&&bombs<5){credits-=c;bombs++;sfx.buy();saveGame();keepScroll()}}
-  else if(act==='insure'){credits=Math.floor(credits*.7);lives=3;computeStats();hull=S.hullMax;saveGame();showBrief()}
+  else if(act==='insure'){credits=Math.floor(credits*.7);lives=3;computeStats();hull=S.hullMax;saveGame();showStation()}
   else if(act==='install'){if(installEvt){installEvt.prompt();installEvt.userChoice.finally(()=>{installEvt=null;if(state==='title')showTitle()})}}
   else if(act==='transfer')showTransfer(state==='shop'?'shop':'title');
   else if(act==='tback'){transferBack==='shop'?showShop():showTitle()}
@@ -1461,10 +1718,12 @@ ov.addEventListener('click',e=>{initAudio();const b=e.target.closest('button');i
     else blobDl()}
   else if(act==='loadcode')importCode(document.getElementById('imCode').value);
   else if(act==='reload')reloadLatest(b);
+  else if(act==='copyreal'){const sv=realSave();if(!sv)return;if(store.get(SAVE)&&!confirm('Replace the game in this test version with a copy of your real game? (Your real game is not changed.)'))return;
+    store.set(SAVE,sv);loadGame(sv);saveGame();toast('Copied your real game (sector '+sv.level+') into the test version');showTitle()}
   else if(act==='vtest')vibeTest();
   else if(act==='resume')resumeGame();
-  else if(act==='quit')showTitle();
-  else if(act==='menu'){if(state==='shop')saveGame();showTitle()}});
+  else if(act==='quit'){endFlight();cur=null;const sv=store.get(SAVE);if(sv)loadGame(sv);showSystem()}
+  else if(act==='menu'){if(state==='shop'||state==='station')saveGame();showTitle()}});
 
 document.getElementById('pauseBtn').addEventListener('click',()=>{initAudio();state==='play'?pauseGame():state==='pause'&&resumeGame()});
 const muteBtn=document.getElementById('muteBtn');const SND_LABEL=['Music and sound on','Sound effects only (music off)','All sound off'];
@@ -1493,23 +1752,23 @@ addEventListener('pointerdown',initAudio);addEventListener('keydown',initAudio);
    - The losing game is always kept: forced upload → old cloud save in orerush-backup.txt; cloud load → local copy in PRESYNC.
    - After Undo or a "this device only" import, sync pauses; Resume asks which game to keep (as on first connection).
    - Questions and cloud loads wait until you're in a menu (never in the middle of a sector). The token stays in localStorage only. */
-const SYNC_KEY='orerush_sync',PRESYNC='orerush_presync',GH='https://api.github.com',GIST_DESC='Ore Rush save (managed by the game, do not edit)';
+const SYNC_KEY='orerush_sync',PRESYNC='orerush_presync',GH='https://api.github.com',GIST_DESC=DEV?'Ore Rush DEV save (test version, managed by the game, do not edit)':'Ore Rush save (managed by the game, do not edit)';
 const GF={save:'orerush-save.txt',meta:'orerush-meta.json',live:'orerush-live.json',backup:'orerush-backup.txt'};
-const TOKEN_URL='https://github.com/settings/tokens/new?scopes=gist&description=Ore%20Rush';
+const TOKEN_URL='https://github.com/settings/tokens/new?scopes=gist&description='+(DEV?'Ore%20Rush%20DEV':'Ore%20Rush');
 const SY={st:'',busy:false,asking:false,hold:false,liveOk:false,lastBeat:0,ans:null,undo:!!store.get(PRESYNC),deferred:false,prev:'title'};
 let SC=store.get(SYNC_KEY)||{};if(!SC.dev){SC.dev=Math.random().toString(36).slice(2,10);store.set(SYNC_KEY,SC)}
 const scSave=()=>store.set(SYNC_KEY,SC);
 function devGuess(){const u=navigator.userAgent;return /iPad|Tablet/i.test(u)||(/Android/i.test(u)&&!/Mobile/i.test(u))?'Tablet':/Mobi|iPhone|Android/i.test(u)?'Phone':'Computer'}
 const syncAgo=t=>{const s=(Date.now()-t)/1000;return s<60?'just now':s<3600?`${Math.round(s/60)} min ago`:s<86400?`${Math.round(s/3600)} h ago`:`${Math.round(s/86400)} days ago`};
 const playStr=t=>{const m=Math.round((t||0)/60);return m<60?`${m} min`:`${Math.floor(m/60)} h ${m%60} min`};
-const rawSave=()=>{try{return localStorage.getItem(SAVE)||''}catch(e){return ''}};
+const rawSave=()=>{try{return localStorage.getItem(KP+SAVE)||''}catch(e){return ''}};
 const sig=t=>{if(!t)return '';let h=5381;for(let i=0;i<t.length;i++)h=(h*33+t.charCodeAt(i))|0;return h.toString(36)+'.'+t.length};
 function syncSum(){const sv=store.get(SAVE);return sv?{level:sv.level,score:sv.score||0,stars:Object.values(sv.stars||{}).reduce((a,b)=>a+b,0),t:Math.round(sv.playT||0)}:null}
 const syncDirty=()=>!SC.base||sig(rawSave())!==SC.baseSig;
 const syncIsBase=m=>!!SC.base&&m.ver===SC.base&&m.dev===SC.baseDev;
 const progLess=(a,b)=>a.level<b.level||(a.level===b.level&&(a.score||0)<(b.score||0));   // a has less progress than b
 const syncOlder=m=>{const s=syncSum();return !!s&&progLess(m,s)};
-const canAsk=()=>['title','shop','brief','cloud','transfer'].includes(state);
+const canAsk=()=>['title','shop','brief','cloud','transfer','station','sysmap','galaxy'].includes(state);
 async function gh(path,opt){opt=opt||{};const r=await fetch(GH+path,{method:opt.method||'GET',cache:'no-cache',body:opt.body,keepalive:!!opt.keepalive,
   headers:Object.assign({Authorization:'Bearer '+SC.token,Accept:'application/vnd.github+json'},opt.body?{'Content-Type':'application/json'}:{})});
   if(r.status===401||r.status===403)throw Object.assign(new Error('GitHub refused the key. Check that it has the “gist” permission.'),{auth:1});
@@ -1538,7 +1797,7 @@ async function cloudLoad(c){const txt=await syncFile(c.save);if(!txt)throw new E
 let toastT=0;function toast(t){let el=document.getElementById('toast');if(!el){el=document.createElement('div');el.id='toast';document.body.appendChild(el)}
   el.textContent=t;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),4200)}
 /* questions: a promise that the dialog buttons resolve; afterwards the previous screen comes back */
-function syncBack(){const s=SY.prev;s==='shop'?showShop():s==='brief'?showBrief():s==='cloud'?showCloud():s==='transfer'?showTransfer(transferBack):showTitle()}
+function syncBack(){const s=SY.prev;s==='shop'?showShop():s==='brief'?showBrief(SY.briefLoc):s==='station'?showStation():s==='sysmap'?showSystem():s==='galaxy'?showGalaxy():s==='cloud'?showCloud():s==='transfer'?showTransfer(transferBack):showTitle()}
 function syncAsk(html,noBack){SY.asking=true;if(state!=='syncask')SY.prev=state;state='syncask';showOv(html);
   return new Promise(res=>{SY.ans=v=>{SY.ans=null;SY.asking=false;if(!noBack)syncBack();res(v)}})}
 const sumLine=(who,s,when)=>`<div class="syncside"><b>${who}</b><br>${s?`Sector ${s.level} · ${fmt(s.score)} cr total haul · ${s.stars}★ · ${playStr(s.t)} played`:'No saved game yet'}${when?`<br><span>${when}</span>`:''}</div>`;
@@ -1609,7 +1868,7 @@ const SYNC_ACT={
   syncNowBtn:()=>{SY.liveOk=false;syncNow(true)},
   syncPause:()=>{SC.paused=true;scSave();showCloud();toast('Cloud sync paused on this device')},
   syncResume:()=>{SC.paused=false;SC.base=null;scSave();SY.hold=false;showCloud();syncNow(true)},     // after a pause we can't know which game is right: ask
-  syncUndo:()=>{const r=store.get(PRESYNC);if(!r||!r.raw)return toast('Nothing to undo');try{localStorage.setItem(SAVE,r.raw)}catch(e){}loadGame(JSON.parse(r.raw));store.del(PRESYNC);SY.undo=false;
+  syncUndo:()=>{const r=store.get(PRESYNC);if(!r||!r.raw)return toast('Nothing to undo');try{localStorage.setItem(KP+SAVE,r.raw)}catch(e){}loadGame(JSON.parse(r.raw));store.del(PRESYNC);SY.undo=false;
     SC.paused=true;scSave();showCloud();toast('Restored the game from before the last sync. Sync is paused here; Resume asks which game to keep')},
   syncOff:()=>{SC={dev:SC.dev};scSave();SY.st='';SY.hold=false;showCloud();toast('Disconnected from the cloud save (the Gist stays on GitHub)')}};
 /* import: all devices or only here */
