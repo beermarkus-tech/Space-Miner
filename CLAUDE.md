@@ -8,7 +8,9 @@ Ore Rush: a Space-Miner-style 2D mining shooter, shipped as a static PWA on GitH
 in the browser and on his phone, so keep changes playable and explain them in plain words.
 
 ## Branch `frontier` (this branch): the star-map / trading update, published as the test version
-- Published at https://beermarkus-tech.github.io/Space-Miner/dev/ as the app "Ore Rush DEV" (own manifest + `icons/dev-*`).
+- Published to the separate project `beermarkus-tech/Space-Miner-Dev` → https://beermarkus-tech.github.io/Space-Miner-Dev/ as the app "Ore Rush DEV"
+  (own manifest + `icons/dev-*`). Publish with `tools/publish-dev.sh /home/user/space-miner-dev` after pushing frontier
+  (a separate project is needed: an installed app owns its address and everything below it).
 - `DEV=true` in `index.html`: every localStorage key gets the prefix `dev_` (`KP`), its own cloud Gist (`GIST_DESC`), title shows "DEV BUILD n".
   The real game's save (`orerush2_save` without prefix) is only read, by "Copy my real game into this test version".
 - **On every push to frontier, bump `BUILD` (dev counter) and `VERSION` in `sw.js` (`'ore-rush-dev-N'`) together.** Tell the owner "DEV build N".
@@ -63,8 +65,8 @@ in the browser and on his phone, so keep changes playable and explain them in pl
   Economy (see `// ---- economy`): sector unlocks `UPG_REQ`/`WUP_REQ` and `req` on `SHIPS`/`WEAPONS`, overclock `OC_GAIN`/`ocCost`/`wocCost`, Belt `deedCost`/`REGION_BONUS`; all applied in `computeStats()`.
 
 ## Shipping
-- **Publishing:** `.github/workflows/pages.yml` builds the site on every push: `main` → the real game at `/Space-Miner/`,
-  `frontier` → the test version at `/Space-Miner/dev/` (installable as "Ore Rush DEV"). The real `sw.js` ignores `./dev/`.
+- **Publishing:** `.github/workflows/pages.yml` publishes only `main` (the real game at `/Space-Miner/`). Pushes to `frontier` publish nothing by
+  themselves: run `tools/publish-dev.sh` to update the test version in Space-Miner-Dev.
 - **`frontier` branch = the star-map / trading update (work in progress).** Push it freely; do NOT merge it into `main`
   until the owner says the new version is better. The test version must use its own storage keys, Gist and manifest, and shows "DEV build N".
 - The owner wants finished work merged to `main` automatically, without asking (GitHub Pages deploys from `main`).
