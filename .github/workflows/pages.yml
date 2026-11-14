@@ -1,11 +1,10 @@
-# Publishes the website (GitHub Pages, source = "GitHub Actions"):
-#   main branch     -> https://beermarkus-tech.github.io/Space-Miner/       (the real game)
-#   frontier branch -> https://beermarkus-tech.github.io/Space-Miner/dev/   (work-in-progress test version)
-# Runs on every push to either branch, so both stay up to date. If a run fails, the site keeps the last good version.
+# Publishes the real game (GitHub Pages, source = "GitHub Actions"): main branch -> https://beermarkus-tech.github.io/Space-Miner/
+# The test version (frontier branch) is published separately to the Space-Miner-Dev project (tools/publish-dev.sh on frontier),
+# because an installed app owns its address and everything below it. If a run fails, the site keeps the last good version.
 name: Publish website
 on:
   push:
-    branches: [main, frontier]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,26 +25,13 @@ jobs:
         with:
           ref: main
           path: main
-      - name: Does the frontier branch exist yet?
-        id: fr
-        run: |
-          if git ls-remote --exit-code --heads "https://github.com/${{ github.repository }}" frontier > /dev/null; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Get the test version (frontier)
-        if: steps.fr.outputs.exists == 'true'
-        uses: actions/checkout@v4
-        with:
-          ref: frontier
-          path: frontier
       - name: Put the website together
         run: |
           EXCL="--exclude=.git --exclude=.github --exclude=tests --exclude=CLAUDE.md"
           mkdir -p _site
           rsync -a $EXCL main/ _site/
-          if [ -d frontier ]; then mkdir -p _site/dev && rsync -a $EXCL frontier/ _site/dev/; fi
           touch _site/.nojekyll
-          ls -la _site _site/dev 2>/dev/null || true
+          ls -la _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
