@@ -50,6 +50,10 @@ in the browser and on his phone, so keep changes playable and explain them in pl
   Economy (see `// ---- economy`): sector unlocks `UPG_REQ`/`WUP_REQ` and `req` on `SHIPS`/`WEAPONS`, overclock `OC_GAIN`/`ocCost`/`wocCost`, Belt `deedCost`/`REGION_BONUS`; all applied in `computeStats()`.
 
 ## Shipping
+- **Publishing:** `.github/workflows/pages.yml` builds the site on every push: `main` → the real game at `/Space-Miner/`,
+  `frontier` → the test version at `/Space-Miner/dev/` (installable as "Ore Rush DEV"). The real `sw.js` ignores `./dev/`.
+- **`frontier` branch = the star-map / trading update (work in progress).** Push it freely; do NOT merge it into `main`
+  until the owner says the new version is better. The test version must use its own storage keys, Gist and manifest, and shows "DEV build N".
 - The owner wants finished work merged to `main` automatically, without asking (GitHub Pages deploys from `main`).
   After testing and pushing the feature branch, merge it into `main` (fast-forward when possible) and push `main`.
   If the merge has conflicts or tests fail, stop and tell the owner instead of forcing it.
