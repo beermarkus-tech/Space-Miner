@@ -154,7 +154,7 @@
 // Build number, shown in the main menu. Bump it together with VERSION in sw.js on every push.
 // DEV = the test version on the frontier branch (published at /dev/). It keeps its own saves and settings (keys start with dev_),
 // its own cloud Gist and app icon. When frontier becomes the real game: set DEV=false, restore manifest/icons/sw names, continue BUILD from main.
-const DEV=true,BUILD=7;
+const DEV=true,BUILD=8;
 const KP=DEV?'dev_':'';   // prefix for every localStorage key
 // ================= helpers =================
 const TAU=Math.PI*2;
@@ -926,16 +926,18 @@ const sellPriceHere=k=>Math.round(priceOf(fr.sys,k)*(1+.03*repLvl(fr.sys)));
 
 // ---- contracts from patrons in the bar ----
 const QUEST={crate:{name:'Sealed Crate',col:'#e8e8e8',desc:'Do not open. (It hums.)'}};
-function contractOffers(id){const R=srand(hashStr(fr.seed+'jobs2'+id+fr.day)),out=[],dests=[...new Set([...fr.visited,...fr.visited.flatMap(v=>sysLinks(v))])].filter(d=>d!==id&&getSys(d)&&sysUnlocked(d));
+// where a job goes, in words: station, system, explored or not, how far
+function placeTxt(to){const s=getSys(to),r=routeTo(to),n=r?r.length:0;return`${s.station} in ${s.name}${fr.visited.includes(to)?'':' (unexplored)'}${n?`, ${n} jump${n>1?'s':''} from here`:''}`}
+function contractOffers(id){const R=srand(hashStr(fr.seed+'jobs2'+id+fr.day)),out=[],dests=[...new Set([...fr.visited,...fr.visited.flatMap(v=>sysLinks(v))])].filter(d=>d!==id&&getSys(d)&&sysUnlocked(d)&&routeTo(d));
   if(!dests.length)return out;
   for(let i=0;i<2;i++){const to=dests[Math.floor(R()*dests.length)],rt=routeTo(to),j=rt?rt.length:3,typ=R()<.62?'supply':'crate';
     if(typ==='supply'){const want=Object.keys(tradeOf(to).buys).filter(k=>GOODS[k]&&!GOODS[k].illegal),k=want.length?want[Math.floor(R()*want.length)]:'food',qty=Math.round((8+R()*14)*(1+homeProgress()/25));
       const hot=R()<.35;out.push({cid:id+fr.day+'-'+i,typ,from:id,to,k,qty,due:fr.day+j+2+Math.floor(R()*3),reward:Math.round(GOODS[k].val*qty*(hot?2.6:2)/10)*10,hot,
         who:pick(['a nervous quartermaster','a cheerful farmer','a medic with tired eyes','a dock worker with a bandaged arm','an old miner who knew your mother (apparently)']),
-        line:hot?`“We need ${qty} ${itemName(k)} at ${getSys(to).station}, fast. Pirates know about it too, so watch your back.”`:`“Could you bring ${qty} ${itemName(k)} to ${getSys(to).station}? You buy them, I pay double.”`})}
+        line:hot?`“We need ${qty} ${itemName(k)} at ${placeTxt(to)}, fast. Pirates know about it too, so watch your back.”`:`“Could you bring ${qty} ${itemName(k)} to ${placeTxt(to)}? You buy them, I pay double.”`})}
     else{const kind=R();out.push({cid:id+fr.day+'-'+i,typ,from:id,to,k:'crate',qty:5,due:fr.day+j+3,reward:Math.round((350+homeProgress()*55)/10)*10,surprise:kind<.25?'smuggle':kind<.4?'kitten':'normal',
       who:pick(['a person in a very large hat','a polite robot with a dented head','a woman who keeps checking the door','a man who says his name is “Not Important”']),
-      line:`“Take this crate to ${getSys(to).station}. Don’t open it. Don’t shake it. And if it starts humming, that’s normal.”`})}}
+      line:`“Take this crate to ${placeTxt(to)}. Don’t open it. Don’t shake it. And if it starts humming, that’s normal.”`})}}
   return out.filter(o=>!(fr.jobs||[]).some(j=>j.cid===o.cid))}
 function acceptContract(o){fr.jobs=fr.jobs||[];if(o.typ==='crate'){if(holdRoom()<5)return toast('You need 5 free units in your hold for the crate.');fr.cargo.crate=(fr.cargo.crate||0)+5}
   fr.jobs.push(o);saveGame();toast(`Job accepted: deliver to ${getSys(o.to).station} by day ${o.due}.`)}
@@ -952,7 +954,7 @@ function deliverContract(cid){const j=(fr.jobs||[]).find(x=>x.cid===cid);if(!j||
   sceneOv('trade',`<h2>Delivery complete</h2><p>${msg}</p><div class="rows"><span>Paid</span><span class="v credits">${fmt(pay)} cr</span></div><div class="btns"><button class="btn" data-act="area" data-v="trade">Back to the trade office</button></div>`)}
 const jobsHere=()=>(fr.jobs||[]).filter(j=>j.to===fr.sys);
 function jobLine(j){const left=j.due-fr.day;return`<div class="deal"><div><b>${j.typ==='crate'?'📦 Sealed crate':`${j.qty} ${itemName(j.k)}`}${j.hot?' <span class="tagi">HOT</span>':''}</b>
-  <small>to ${getSys(j.to).station} · ${left>0?`${left} day${left>1?'s':''} left`:'due today'} · pays ${fmt(j.reward)} cr${j.typ==='supply'?` · you have ${Math.floor(fr.cargo[j.k]||0)}/${j.qty}`:''}</small></div>
+  <small>to ${placeTxt(j.to)} · ${left>0?`${left} day${left>1?'s':''} left`:'due today'} · pays ${fmt(j.reward)} cr${j.typ==='supply'?` · you have ${Math.floor(fr.cargo[j.k]||0)}/${j.qty}`:''}</small></div>
   ${j.to===fr.sys?`<button class="buyb" data-act="deliver" data-id="${j.cid}">Deliver</button>`:''}</div>`}
 
 // ---- areas ----
@@ -1088,7 +1090,7 @@ function gmapDraw(t){if(!gmap||!gmap.cv.isConnected)return false;const{cv,cx,cy,
     if((fr.jobs||[]).some(j=>j.to===id)){g.font=`${fs}px sans-serif`;g.textAlign='center';g.fillText('📦',x+box+6,y-box+4)}
     if(here){g.strokeStyle=`rgba(255,255,255,${.35+.25*Math.sin(t*.005)})`;g.lineWidth=1.5;g.beginPath();g.arc(x,y,box*1.55+2*Math.sin(t*.005),0,TAU);g.stroke()}
     g.font=`600 ${fs}px "Exo 2",sans-serif`;g.textAlign='center';g.fillStyle=vis?'#e3efff':'rgba(200,215,235,.6)';
-    const label=(vis?(s.icon?s.icon+' ':'')+s.name:'Unexplored')+(open?'':' 🔒');g.fillText(label,x,y+box+fs+2)}
+    const jobTo=(fr.jobs||[]).some(j=>j.to===id),label=(vis?(s.icon?s.icon+' ':'')+s.name:jobTo?s.name+' (unexplored)':'Unexplored')+(open?'':' 🔒');g.fillText(label,x,y+box+fs+2)}
   return true}
 const PHANTOM_COL=['#9fc8ff','#ffd8a0','#ffb0c0','#c8b0ff','#a0ffe0','#fff0c0'];
 function gmapUnit(){const r=gmap.cv.getBoundingClientRect();return Math.min(r.width,r.height)/42*gmap.z}
@@ -1103,7 +1105,7 @@ function gmapInfo(){const el=document.getElementById('gInfo');if(!el||!gmap)retu
   else if(!route)act=`<p style="color:#93a8c6;margin:4px 0">No known route yet. Explore the systems next to it first.</p>`;
   else{const n=route.length;act=`<div class="ginfo-route">${n} jump${n>1?'s':''} · ${n} fuel · ${n} day${n>1?'s':''}${fr.fuel<n?` · <span style="color:#ff7a5a">you have ${fr.fuel} fuel</span>`:''}</div>
     <button class="btn" data-act="travel" data-id="${id}" ${fr.fuel<n?'disabled':''}>🚀 Travel to ${vis?s.name:'this system'}</button>`}
-  el.innerHTML=`<div class="ginfo"><b>${vis?(s.icon||'')+' '+s.name:'Unexplored system'}</b>${here?' <span class="tag">YOU ARE HERE</span>':''}
+  el.innerHTML=`<div class="ginfo"><b>${vis?(s.icon||'')+' '+s.name:(fr.jobs||[]).some(j=>j.to===id)?s.name+' (unexplored)':'Unexplored system'}</b>${here?' <span class="tag">YOU ARE HERE</span>':''}
     <small>${vis?`${s.kind||'Frontier system'} · ${s.station} · danger ${sysN(id)}`:'Long-range scans show a station, nothing more. Go and see.'}</small>
     <small>Pirate activity: <b style="color:${dangerCol(dangerOf(id))}">${dangerName(dangerOf(id))}</b>${(fr.jobs||[]).some(j=>j.to===id)?' · 📦 delivery due here':''}</small>
     ${kn?`<small>Pays well for: <b style="color:#7dff7a">${pays}</b> · cheap here: ${cheap} <i>(prices from day ${kn.day})</i></small>`:''}${cargoLine}${act}</div>`}
