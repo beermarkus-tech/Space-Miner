@@ -25,7 +25,12 @@ in the browser and on his phone, so keep changes playable and explain them in pl
   `level` is the flight difficulty and `homeLevel` the campaign progress. Pause → "Return to the station" ends a flight keeping the hold.
   Rush orders (quota): ore goes to the client, not the hold; pays `rushFee(n)` (≈ half a full hold of that sector's ore) when filled,
   `RUSH_PARTIAL` of it × share delivered on failure. Asteroid fields (`clear`): exit gate open from the start (stay 1.4 s in it to leave early,
-  `leaveEarly`); done when all pirates are destroyed, or after `FIELD_ORE` ore in fields without pirates. Hyperjump lasts `WARP_T` s. Markets: `priceOf`, `sellOre`, `sysEvent`. Screens: `showStation`,
+  `leaveEarly`); done when all pirates are destroyed, or after `FIELD_ORE` ore in fields without pirates. Hyperjump lasts `WARP_T` s.
+- Trade: `GOODS` (basics, `spec` specialties, `illegal` contraband) + `TRADE[id]` profiles (`sells`, `buys` multipliers, `black` market,
+  `navy` scans); generated systems get one from `tradeOf`. Cargo holds ore and goods (`fr.cargo`); `priceOf` handles both (`baseVal`),
+  `buyPriceOf`/`buyGood` (+10% spread, `fr.bsat` raises buy prices), `canSellAt` (contraband only at black markets). Knowledge: `fr.known`
+  (visits) + `fr.rum` (bar rumours from `makeRumour` in the station news) → `knownPrice`; `tradeDeals` = trade computer (profit after fuel).
+  Navy scans on arrival (`scanRoll`, `navyScan`, submit/bribe). Station screen tabs: Ore / Goods / Trade computer (`stationTab`). Markets: `priceOf`, `sellOre`, `sysEvent`. Screens: `showStation`,
   `showSystem`, `showGalaxy`; actions in `FR_ACT`. After a win an `exitGate` opens; flying into it ends the flight.
 - Tests: `node tests/sync-test.js` (cloud sync). Gameplay checks are ad-hoc Playwright scripts.
 
