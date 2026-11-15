@@ -30,7 +30,17 @@ in the browser and on his phone, so keep changes playable and explain them in pl
   `navy` scans); generated systems get one from `tradeOf`. Cargo holds ore and goods (`fr.cargo`); `priceOf` handles both (`baseVal`),
   `buyPriceOf`/`buyGood` (+10% spread, `fr.bsat` raises buy prices), `canSellAt` (contraband only at black markets). Knowledge: `fr.known`
   (visits) + `fr.rum` (bar rumours from `makeRumour` in the station news) → `knownPrice`; `tradeDeals` = trade computer (profit after fuel).
-  Navy scans on arrival (`scanRoll`, `navyScan`, submit/bribe). Station screen tabs: Ore / Goods / Trade computer (`stationTab`). Markets: `priceOf`, `sellOre`, `sysEvent`. Screens: `showStation`,
+  Navy scans on arrival (`scanRoll`, `navyScan`, submit/bribe). Rumours can exaggerate (25%); "Buy a round" in the bar gives a true price.
+- Station = full-screen scenes (`stationScene(area)`, `sceneOv`, art from `sceneArt`): concourse (window shows the live canvas: `stationView`
+  places the system's sun/planet there), bar (rumours, `barTip`, patron contracts), trade office (Ore / Goods / Price book tabs, deliveries,
+  reputation), shipyard (`showShop` rendered in the scene), hangar (refuel, repair, jobs, Launch). Nav bar + door hotspots use `data-act="area"`.
+- Reputation per station `fr.rep` (`repLvl`, 4 levels): better sell/buy prices; earned by selling what they need and by contracts.
+  Delivering 15+ units into a shortage ends it (`fr.fixed`, `fr.thanks`). Contracts `fr.jobs` from `contractOffers` (supply / sealed crate
+  with `surprise` normal|kitten|smuggle; smuggled crates count as contraband), deadlines checked by `checkDeadlines`.
+- Pirate activity per system `dangerOf(id)` (map rings, info); raid chance on arrival grows with it, cargo value and HOT jobs.
+  Raids (`cur.raid`): hull hits knock cargo pods loose (`dropPod`), pirates with `e.grab` grab them (`raidGrab`) and flee; kill them to drop
+  the pod; fly over pods to recover (`updatePods`). A full hold slows the ship. Tests can force jump events with `forceEvent='raid'|'wreck'`.
+- `hashStr` has a final mix step so consecutive days/blocks give unrelated values (prices, events, danger). Markets: `priceOf`, `sellOre`, `sysEvent`. Screens: `showStation`,
   `showSystem`, `showGalaxy`; actions in `FR_ACT`. After a win an `exitGate` opens; flying into it ends the flight.
 - Tests: `node tests/sync-test.js` (cloud sync). Gameplay checks are ad-hoc Playwright scripts.
 

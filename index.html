@@ -35,6 +35,26 @@
     background:radial-gradient(ellipse at center,rgba(3,5,14,.35),rgba(3,5,14,.82))}
   .ov.show{display:flex}
   .panel.wide{width:min(1180px,100%)}
+  .ov.scene{padding:0;background:none;align-items:stretch;justify-content:stretch}
+  .stn{position:relative;width:100%;height:100%;display:flex;flex-direction:column;background:none}
+  .stn-top{padding:10px 140px 6px 14px;background:linear-gradient(180deg,rgba(4,6,14,.95),rgba(4,6,14,.6))}
+  .stn-name{font-family:Orbitron;font-weight:700;font-size:16px;color:var(--acc);letter-spacing:.05em}.stn-name small{display:block;font-family:'Exo 2';font-weight:600;font-size:11.5px;color:#93a8c6;letter-spacing:0;margin-top:2px}
+  .stn-stats{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:#cfe0f5;margin-top:5px}.stn-stats .credits{font-size:13px}
+  .stn-art{width:100%;flex:none;display:flex;justify-content:center}.stn-art-in{position:relative;aspect-ratio:5/3;width:min(100%,63vh);max-height:38vh}.stn-art svg{width:100%;height:100%;display:block}
+  .stn-art .door{position:absolute;background:transparent;border:0;cursor:pointer;border-radius:6px}.stn-art .door:hover,.stn-art .door:focus{background:rgba(255,255,255,.07)}
+  .stn-body{flex:1;overflow:auto;padding:10px 14px 12px;touch-action:pan-y;background:rgba(6,9,18,.9);border-top:1px solid color-mix(in srgb,var(--acc) 40%,transparent)}
+  .stn-nav{display:flex;gap:2px;padding:6px 6px calc(6px + env(safe-area-inset-bottom));background:rgba(4,6,14,.97);border-top:1px solid var(--line)}
+  .stn-nav button{flex:1;background:none;border:0;color:#93a8c6;font-family:Orbitron;font-size:9px;letter-spacing:.04em;padding:5px 2px;border-radius:9px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+  .stn-nav button span{font-size:18px}.stn-nav button.on{color:var(--acc);background:rgba(255,255,255,.05)}
+  .areas{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.area-btn{text-align:left;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#e9f6ff;cursor:pointer}
+  .area-btn span{font-size:20px}.area-btn b{display:block;font-family:Orbitron;font-size:12px;margin:3px 0}.area-btn small{color:#93a8c6;font-size:11.5px}
+  .a-bar{border-color:rgba(255,179,71,.45)}.a-trade{border-color:rgba(94,240,255,.45)}.a-shipyard{border-color:rgba(255,138,61,.45)}.a-hangar{border-color:rgba(125,255,122,.45)}
+  .npc{border-left:3px solid #ffb347;background:rgba(255,179,71,.06);border-radius:0 10px 10px 0;padding:8px 11px;margin:8px 0;font-size:14px;line-height:1.45}.npc b{display:block;font-family:Orbitron;font-size:10.5px;letter-spacing:.12em;color:#ffb347;margin-bottom:3px;text-transform:uppercase}
+  .npc small{display:block;color:#93a8c6;font-size:12px;margin-top:4px}.npc .buyb{margin-top:6px}
+  .stn-bar .stn-body{background:rgba(20,10,4,.92)}.stn-trade .stn-body{background:rgba(3,14,22,.92)}.stn-shipyard .stn-body{background:rgba(18,10,4,.92)}.stn-hangar .stn-body{background:rgba(4,14,8,.92)}
+  .chip.on{background:rgba(94,240,255,.18);color:#fff}
+  @media (min-width:820px) and (orientation:landscape){.stn{display:grid;grid-template-columns:1.15fr 1fr;grid-template-rows:auto 1fr auto}.stn-top{grid-column:1/-1}
+    .stn-art{grid-row:2;height:100%;align-items:center}.stn-art-in{width:100%;max-height:100%}.stn-body{grid-row:2;border-top:0;border-left:1px solid color-mix(in srgb,var(--acc) 40%,transparent)}.stn-nav{grid-column:1/-1}}
   .panel{width:min(680px,100%);max-height:calc(100% - 8px);overflow:auto;background:var(--panel);border:1px solid var(--line);
     border-radius:18px;padding:20px 20px 18px;box-shadow:0 0 0 1px rgba(255,255,255,.03) inset,0 20px 60px rgba(0,0,0,.6),0 0 40px rgba(94,240,255,.08);
     backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);touch-action:pan-y}
@@ -134,7 +154,7 @@
 // Build number, shown in the main menu. Bump it together with VERSION in sw.js on every push.
 // DEV = the test version on the frontier branch (published at /dev/). It keeps its own saves and settings (keys start with dev_),
 // its own cloud Gist and app icon. When frontier becomes the real game: set DEV=false, restore manifest/icons/sw names, continue BUILD from main.
-const DEV=true,BUILD=6;
+const DEV=true,BUILD=7;
 const KP=DEV?'dev_':'';   // prefix for every localStorage key
 // ================= helpers =================
 const TAU=Math.PI*2;
@@ -540,6 +560,7 @@ let fr=null,cur=null,inFlight=false,homeLevel=1,exitGate=null;  // galaxy state 
 let oc={},deeds=[],playT=0;  // playT: seconds spent flying sectors (shown in cloud-save questions)
 let state='title',level=1,credits=0,score=0,lives=3,upg={},wl={},weapon='blaster',shipId='prospector',ownedShips=['prospector'],bombs=1,stars={},S={},hull=100,shield=30;
 let ship=null,asteroids=[],bullets=[],ebullets=[],missiles=[],enemies=[],ores=[],pus=[],mines=[],holes=[],blasts=[],arcs=[],parts=[],texts=[],rig=null,beam=null;
+let pods=[],podsLost=0;   // cargo pods knocked loose in a pirate raid
 let fieldOre=0,fieldGoal=0;const FIELD_ORE=20;   // asteroid fields without pirates are done after FIELD_ORE pieces of ore
 let clusters=[],WORLD=2000,HALF=1000,cam={x:0,y:0},shake=0,levelTime=0,clearT=-1,failT=-1,failReason='',spawnQ=[],spawnT=0,levelStats=null,nebula=null,planet=null,planetPos={x:.75,y:.28};
 let storm=null,frost=[],lode=null,stolen=0,scavT=0;
@@ -616,15 +637,16 @@ const GEN_B=[' Reach',' Drift',' Hollow',' Expanse',' Nine',' Rest',' Gap',' Ver
 const GEN_KIND=[['Frontier outpost','✧'],['Mining camp','⛏'],['Trading post','◆'],['Smuggler nest','☠'],['Ice station','❄'],['Relay station','⌁'],['Hermit\u2019s rock','◎']];
 const GEN_ST=['Outpost','Trading Post','Depot','Exchange','Market','Station','Bazaar','Hub'];
 
-function frNew(){return{sys:'kessler',day:1,fuel:FUEL_MAX,cargo:{},known:{},sat:{},gen:{},links:{},done:{},visited:['kessler'],seed:Math.floor(Math.random()*1e9),news:0,bsat:{},rum:[]}}
+function frNew(){return{sys:'kessler',day:1,fuel:FUEL_MAX,cargo:{},known:{},sat:{},gen:{},links:{},done:{},visited:['kessler'],seed:Math.floor(Math.random()*1e9),news:0,bsat:{},rum:[],rep:{},jobs:[],fixed:{},thanks:{}}}
 // an existing save (no galaxy yet): put the pilot in the system of their current campaign progress
 function frFromProgress(lv){const f=frNew(),r=Math.min(3,regionOf(Math.min(lv,LAST_SECTOR)));f.sys=STORY_SYS[r].id;f.visited=STORY_SYS.slice(0,r+1).map(s=>s.id);return f}
-function frFix(f){const d=frNew();f=Object.assign(d,f||{});for(const k of ['cargo','known','sat','gen','links','done','bsat'])if(!f[k]||typeof f[k]!=='object')f[k]={};if(!Array.isArray(f.rum))f.rum=[];if(!Array.isArray(f.visited))f.visited=[f.sys];
+function frFix(f){const d=frNew();f=Object.assign(d,f||{});for(const k of ['cargo','known','sat','gen','links','done','bsat','rep','fixed','thanks'])if(!f[k]||typeof f[k]!=='object')f[k]={};if(!Array.isArray(f.rum))f.rum=[];if(!Array.isArray(f.jobs))f.jobs=[];if(!Array.isArray(f.visited))f.visited=[f.sys];
   if(Object.values(f.gen).some(g=>g.x<20||!g.look)){f.gen={};f.links={};f.done={};if(!HOME[f.sys])f.sys='frozen';f.visited=f.visited.filter(id=>HOME[id])}  // DEV build 1 map scale
   if(!Array.isArray(f.route))f.route=null;return f}
 
 // deterministic random numbers (same galaxy and prices for a given seed and day)
-function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}
+  h^=h>>>16;h=Math.imul(h,0x85ebca6b);h^=h>>>13;h=Math.imul(h,0xc2b2ae35);h^=h>>>16;return h>>>0}   // final mix: neighbouring inputs (day 5, day 6) give unrelated values
 const hashf=s=>hashStr((fr?fr.seed:0)+'|'+s)/4294967296;
 function srand(seed){return()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}}
 
@@ -657,13 +679,14 @@ function genNeighbors(id){if(!frontierOpen()||fr.done[id])return;const s=getSys(
 const cargoUsed=()=>Object.values(fr.cargo).reduce((a,b)=>a+b,0);
 const cargoCap=()=>Math.round((S.sh.cap||60)*(1+.2*(upg.cargo||0))*(1+OC_GAIN.cargo*(oc.cargo||0)));
 const holdRoom=()=>cargoCap()-cargoUsed();
-function sysEvent(id,day){const b=Math.floor(day/3),h=hashf(id+'ev'+b);if(h>.38)return null;
+function sysEvent(id,day){const b=Math.floor(day/3),h=hashf(id+'ev'+b);if(h>.38||(fr.fixed&&fr.fixed[id+':'+b]))return null;
   const k=ITEM_KEYS[Math.floor(hashf(id+'evk'+b)*ITEM_KEYS.length)],up=hashf(id+'evu'+b)<.65;return{k,up,f:up?1.6:.6}}
 const baseVal=k=>GOODS[k]?GOODS[k].val:TYPES[k].val*S.refine;   // refinery and Belt bonuses raise ore prices, not goods
 function priceOf(id,k,day){day=day||fr.day;const s=getSys(id);let m=GOODS[k]?goodsMul(id,k):(s.mul&&s.mul[k])||1;
-  m*=1+.12*(hashf(id+k+day)*2-1);const ev=sysEvent(id,day);if(ev&&ev.k===k)m*=ev.f;
+  m*=1+.18*(hashf(id+k+day)*2-1);const ev=sysEvent(id,day);if(ev&&ev.k===k)m*=ev.f;
   m/=1+((fr.sat[id]||{})[k]||0)/(GOODS[k]?160:80);return Math.max(1,Math.round(baseVal(k)*m))}   // selling lowers the price (goods react less than ore)
 function newsFor(id){const s=getSys(id),ev=sysEvent(id,fr.day);
+  if(fr.thanks&&fr.thanks[id]>=fr.day-2)return pick(['Everybody is talking about the pilot who ended the shortage. That\u2019s you!','The shortage is over thanks to a certain pilot. The mayor wants a statue. Of you. Small one.']);
   const rum=makeRumour(id),addRum=t=>rum?t+'<br><span style="color:#9fdcff">'+rum+'</span>':t;
   if(ev){const N=itemName(ev.k);return addRum(ev.up?pick([`${N} shortage on ${s.station}! They pay a lot more for a few days.`,`Somebody at ${s.station} sneezed on the ${N} supply. Prices are way up.`,`${s.station} is desperate for ${N}. Name your price (well, almost).`])
     :pick([`Too much ${N} on ${s.station}. Prices crashed. Sell it somewhere else.`,`A freighter dumped a mountain of ${N} here. Nobody wants more for a few days.`]))}
@@ -673,8 +696,10 @@ function rememberPrices(id){const p={};for(const k of ITEM_KEYS)if(canSellAt(id,
 function bestElsewhere(k){let best=null;const ids=new Set([...Object.keys(fr.known),...fr.rum.map(r=>r.id)]);for(const id of ids){if(id===fr.sys||!getSys(id)||!canSellAt(id,k))continue;const kp=knownPrice(id,k);if(kp&&(!best||kp.p>best.v))best={v:kp.p,id,day:kp.day,rum:kp.rum}}return best}
 // sell: the price drops a little with every unit sold here
 function sellOre(k,all){let units=fr.cargo[k]||0;if(units<=0||!canSellAt(fr.sys,k))return 0;let total=0;const sat=fr.sat[fr.sys]=fr.sat[fr.sys]||{};
-  while(units>1e-6){const u=Math.min(1,units);total+=priceOf(fr.sys,k)*u;sat[k]=(sat[k]||0)+u;units-=u}
-  delete fr.cargo[k];total=Math.round(total);credits+=total;score+=total;if(!all){sfx.buy();saveGame()}return total}
+  const sold=units,ev=sysEvent(fr.sys,fr.day),need=tradeOf(fr.sys).buys[k];
+  while(units>1e-6){const u=Math.min(1,units);total+=sellPriceHere(k)*u;sat[k]=(sat[k]||0)+u;units-=u}
+  delete fr.cargo[k];total=Math.round(total);credits+=total;score+=total;addRep(fr.sys,sold*(need?.08:GOODS[k]?.015:.004));
+  if(ev&&ev.up&&ev.k===k&&sold>=15){fr.fixed[fr.sys+':'+Math.floor(fr.day/3)]=1;fr.thanks[fr.sys]=fr.day;fr.news=0;addRep(fr.sys,4);setTimeout(()=>toast('You ended the shortage! The station will remember that.'),600)}if(!all){sfx.buy();saveGame()}return total}
 function sellAll(){let t=0;for(const k of Object.keys(fr.cargo))if(canSellAt(fr.sys,k))t+=sellOre(k,true);if(t){sfx.clear();saveGame();toast(`Sold everything for ${fmt(t)} cr`)}return t}
 const fuelPrice=()=>20+homeProgress()*4;
 // ---- trade goods ----
@@ -722,24 +747,27 @@ function tradeOf(id){if(TRADE[id])return TRADE[id];const s=getSys(id);if(!s)retu
   const R=srand(hashStr(fr.seed+'trade'+id)),basic=GOOD_KEYS.filter(k=>!GOODS[k].spec&&!GOODS[k].illegal),pk=a=>a[Math.floor(R()*a.length)];
   const t={sells:[pk(basic),pk(basic)],buys:{}};for(let i=0;i<3;i++)t.buys[pk(GOOD_KEYS.filter(k=>!GOODS[k].illegal))]=+(1.5+R()*.8).toFixed(2);
   if(s.kind==='Smuggler nest'){t.black=1;t.sells.push(pk(['cigars','stardust','dreamspore']))}return s.trade=t}
-const isGood=k=>!!GOODS[k],itemName=k=>(GOODS[k]||TYPES[k]).name,itemCol=k=>GOODS[k]?GOODS[k].col:TYPES[k].ore;
+const isGood=k=>!!GOODS[k],itemName=k=>(GOODS[k]||TYPES[k]||QUEST[k]).name,itemCol=k=>GOODS[k]?GOODS[k].col:QUEST[k]?QUEST[k].col:TYPES[k].ore;
 const sellsHere=(id,k)=>tradeOf(id).sells.includes(k);
-const canSellAt=(id,k)=>!(GOODS[k]&&GOODS[k].illegal)||!!tradeOf(id).black;
+const canSellAt=(id,k)=>!QUEST[k]&&(!(GOODS[k]&&GOODS[k].illegal)||!!tradeOf(id).black);
 function goodsMul(id,k){const t=tradeOf(id);return t.buys[k]||(t.sells.includes(k)?.6:GOODS[k].illegal?1.2:1)}
-function buyPriceOf(id,k){return Math.max(1,Math.round(priceOf(id,k)*1.1*(1+((fr.bsat[id]||{})[k]||0)/150)))}
+function buyPriceOf(id,k){return Math.max(1,Math.round(priceOf(id,k)*1.1*(1-.03*repLvl(id))*(1+((fr.bsat[id]||{})[k]||0)/150)))}
 function buyGood(k,qty){const id=fr.sys;let n=0,total=0;const bs=fr.bsat[id]=fr.bsat[id]||{},room=Math.floor(holdRoom());qty=Math.min(qty,room);
   while(n<qty){const p=buyPriceOf(id,k);if(credits<p)break;credits-=p;total+=p;bs[k]=(bs[k]||0)+1;n++}
   if(n){fr.cargo[k]=(fr.cargo[k]||0)+n;sfx.buy();saveGame()}return{n,total}}
-const hasContraband=()=>Object.keys(fr.cargo).some(k=>GOODS[k]&&GOODS[k].illegal&&fr.cargo[k]>0);
-const contrabandValue=()=>Object.keys(fr.cargo).reduce((a,k)=>a+(GOODS[k]&&GOODS[k].illegal?GOODS[k].val*fr.cargo[k]:0),0);
+const smuggleJob=()=>(fr.jobs||[]).find(j=>j.typ==='crate'&&j.surprise==='smuggle'&&(fr.cargo.crate||0)>=5);
+const hasContraband=()=>!!smuggleJob()||Object.keys(fr.cargo).some(k=>GOODS[k]&&GOODS[k].illegal&&fr.cargo[k]>0);
+const contrabandValue=()=>(smuggleJob()?2000:0)+Object.keys(fr.cargo).reduce((a,k)=>a+(GOODS[k]&&GOODS[k].illegal?GOODS[k].val*fr.cargo[k]:0),0);
 
 // ---- what you know about prices elsewhere: visits (fr.known) and bar rumours (fr.rum) ----
 function knownPrice(id,k){let best=null;const kn=fr.known[id];if(kn&&kn.p[k])best={p:kn.p[k],day:kn.day,rum:false};
   for(const r of fr.rum)if(r.id===id&&r.k===k&&(!best||r.day>best.day))best={p:r.p,day:r.day,rum:true};return best}
+function barTip(){const pool=[...HOME_SYS.filter(s=>sysUnlocked(s.id)),...Object.values(fr.gen)].filter(s=>s.id!==fr.sys);const s=pick(pool),wants=Object.keys(tradeOf(s.id).buys),k=wants.length?pick(wants):pick(TYPE_KEYS);
+  const p=priceOf(s.id,k);fr.rum.push({id:s.id,k,p,day:fr.day,sure:1});if(fr.rum.length>14)fr.rum.shift();return`An old trader leans over: \u201c${s.station} pays ${fmt(p)} for ${itemName(k)}. Saw it myself this morning.\u201d`}
 function makeRumour(here){const R=srand(hashStr(fr.seed+'rum'+here+fr.day));if(R()>.55)return null;
   const pool=[...HOME_SYS.filter(s=>sysUnlocked(s.id)||R()<.3),...Object.values(fr.gen)].filter(s=>s.id!==here);if(!pool.length)return null;
   const s=pool[Math.floor(R()*pool.length)],wants=Object.keys(tradeOf(s.id).buys);const k=wants.length&&R()<.75?wants[Math.floor(R()*wants.length)]:ITEM_KEYS[Math.floor(R()*ITEM_KEYS.length)];
-  const p=priceOf(s.id,k);if(!fr.rum.some(r=>r.id===s.id&&r.k===k&&r.day===fr.day)){fr.rum.push({id:s.id,k,p,day:fr.day});if(fr.rum.length>14)fr.rum.shift()}
+  const lie=R()<.25,p=Math.round(priceOf(s.id,k)*(lie?1.3+R()*.4:1));if(!fr.rum.some(r=>r.id===s.id&&r.k===k&&r.day===fr.day)){fr.rum.push({id:s.id,k,p,day:fr.day});if(fr.rum.length>14)fr.rum.shift()}
   return pick([`Rumour from the bar: ${s.station} pays ${fmt(p)} cr for ${itemName(k)}.`,`A tired pilot swears ${s.name} is crazy for ${itemName(k)} right now (${fmt(p)} cr each).`,
     `Overheard at the bar: “${itemName(k)}? Take it to ${s.station}, they pay ${fmt(p)}!”`])}
 // the trade computer: best known deals from here, after fuel for the trip
@@ -760,13 +788,16 @@ function dealHtml(d){const s=getSys(d.id),age=d.age>0?` · ${d.rum?'rumour, ':''
 
 // ---- navy scans (when arriving with contraband in a navy system) ----
 let scanRoll=()=>Math.random();
+// pirate activity 0..3: low in navy systems, high at black markets and in the frontier, changes every couple of days
+function dangerOf(id){const t=tradeOf(id),s=getSys(id),base=t.navy?.4:t.black?2.1:s&&s.depth?1.3+s.depth*.15:1.1;return clamp(base+(hashf(id+'pir'+Math.floor(fr.day/2))-.5)*1.3,0,3)}
+const dangerName=v=>v<.8?'low':v<1.8?'medium':'high',dangerCol=v=>v<.8?'#7dff7a':v<1.8?'#ffc845':'#ff5a5a';
 function navyScan(id){const s=getSys(id),v=contrabandValue(),bribe=Math.round(v*.35);state='event';fr.scan={bribe};
   showOv(`<div class="kicker">ARRIVING · ${s.name.toUpperCase()}</div><h2 style="color:#ffc845">⚓ Navy patrol</h2>
     <p>${pick(['“Routine inspection, pilot. Hold still while we scan your cargo.”','A navy cutter blocks the gate. “Cargo scan. Don’t make this awkward.”','“Good day! Random check. Totally random. Definitely not because of your shifty face.”'])}</p>
     <p style="color:#93a8c6;font-size:13.5px">You are carrying contraband worth about ${fmt(v)} cr. If they find it, it is confiscated and you pay a fine.</p>
     <div class="btns"><button class="btn alt" data-act="scanSubmit">Submit to the scan</button><button class="btn warn" data-act="scanBribe" ${credits<bribe?'disabled':''}>Offer a bribe · ${fmt(bribe)} cr (risky)</button></div>`)}
 function scanDone(msg){toast(msg);saveGame();if(fr.route&&fr.route.length)nextHop();else showSystem()}
-function confiscate(mult){const v=contrabandValue(),fine=Math.min(credits,Math.round(v*.5*mult));for(const k of Object.keys(fr.cargo))if(GOODS[k]&&GOODS[k].illegal)delete fr.cargo[k];credits-=fine;return fine}
+function confiscate(mult){const v=contrabandValue(),fine=Math.min(credits,Math.round(v*.5*mult));for(const k of Object.keys(fr.cargo))if(GOODS[k]&&GOODS[k].illegal)delete fr.cargo[k];const sj=smuggleJob();if(sj){fr.cargo.crate-=5;if(fr.cargo.crate<.01)delete fr.cargo.crate;fr.jobs=fr.jobs.filter(j=>j!==sj);addRep(sj.from,-3)}credits-=fine;return fine}
 
 
 // ---- side jobs (change every day) ----
@@ -779,7 +810,7 @@ const SITES=['belt','belt','sun','giant','nebula'],SITE_TXT={belt:'In the astero
 function storyLoc(n){return{kind:'story',n,mission:missionOf(n),name:'Sector '+n,boss:null,site:n%5===0?'sun':['belt','nebula','belt','giant','belt'][n%5]}}
 
 // ---- flights ----
-function startFlight(loc){cur=loc;if(!inFlight){homeLevel=level;inFlight=true}level=loc.n;startLevel()}
+function startFlight(loc){stnPrev=null;cur=loc;if(!inFlight){homeLevel=level;inFlight=true}level=loc.n;startLevel()}
 function endFlight(){if(inFlight){level=homeLevel;inFlight=false}exitGate=null}
 const curBoss=()=>cur&&cur.boss||bossOf(level);
 function openExitGate(early){if(!ship||exitGate)return;const a=Math.atan2(-ship.y,-ship.x)+rand(-.6,.6),d=early?520:380,lim=HALF-160;
@@ -793,6 +824,7 @@ function arrowTargets(){const T=[],near=list=>{let b=null,bd=1e9;for(const o of 
   if(!ship||ship.dead)return T;
   if(exitGate&&(clearT>=0||holdRoom()<1)){T.push([exitGate,'#7fe8ff','EXIT']);return T}if(clearT>=0||failT>=0)return T;
   if(exitGate&&mission==='clear')T.push([exitGate,'#5fa8c0','EXIT']);
+  {const fp=pods.filter(p=>!p.taken);if(fp.length)T.push([near(fp),'#ffb347','POD'])}
   if(['clear','ambush','quota','storm','lode'].includes(mission)){const e=near(enemies);if(e)T.push([e,'#ff5a5a',''])}
   if(mission==='boss'){const b=enemies.find(e=>e.boss);if(b)T.push([b,'#ff5a5a','BOSS'])}
   if((mission==='escort'||mission==='defend')&&rig&&!rig.dead)T.push([rig,'#7fe8ff',mission==='escort'?'HAULER':'RIG']);
@@ -808,35 +840,168 @@ function drawArrows(){const L=30,Tp=Math.min(SW,SH)<500?150:120,Rr=SW-30,B=SH-92
 // ---- screens ----
 const holdBar=()=>{const u=cargoUsed(),c=cargoCap();return`<span>Cargo</span><span class="v" style="color:${u>=c?'#ff7a5a':'inherit'}">${Math.floor(u)} / ${c}</span>`};
 let stationTab='ore';
-function marketRow(k,id){const ore=!isGood(k),have=fr.cargo[k]||0,legal=canSellAt(id,k),p=legal?priceOf(id,k):0,rel=legal?p/baseVal(k):1,b=bestElsewhere(k),G=GOODS[k],sells=!ore&&sellsHere(id,k);
+function marketRow(k,id){const ore=!isGood(k),have=fr.cargo[k]||0,legal=canSellAt(id,k),p=legal?(id===fr.sys?sellPriceHere(k):priceOf(id,k)):0,rel=legal?p/baseVal(k):1,b=bestElsewhere(k),G=GOODS[k],sells=!ore&&sellsHere(id,k);
   const badge=G?(G.illegal?' <span class="tagi">☠ CONTRABAND</span>':G.spec?' <span class="tags">✦ SPECIALTY</span>':''):'';
   const info=G&&G.desc?`<small>${G.desc}</small>`:'';const seen=b?`<small>best seen: ${fmt(b.v)} at ${getSys(b.id).station}${b.rum?' (rumour)':''}${b.day<fr.day?` · day ${b.day}`:''}</small>`:'';
   const price=legal?`<div class="mp" style="color:${rel>1.15?'#7dff7a':rel<.85?'#ff7a5a':'#ffc845'}">${fmt(p)}<small> cr${rel>1.15?' ▲':rel<.85?' ▼':''}</small>${sells?`<small class="bp">buy ${fmt(buyPriceOf(id,k))}</small>`:''}</div>`
     :`<div class="mp" style="color:#93a8c6;font-size:11px">no buyers<br>here</div>`;
   const btn=[sells?`<button class="buyb" data-act="buy" data-k="${k}" data-q="10">Buy 10</button><button class="buyb" data-act="buy" data-k="${k}" data-q="999">Max</button>`:'',
-    have>=1&&legal?`<button class="sellb" data-act="sell" data-k="${k}">Sell ${fmt(Math.round(p*have))}</button>`:''].join('');
+    have>=1&&legal?`<button class="sellb" data-act="sell" data-k="${k}">Sell ${fmt(Math.round(p*have))}</button>`:''].join('');void 0;
   return`<div class="mrow ${have||sells?'':'dim'}"><i class="dot" style="background:${itemCol(k)};box-shadow:0 0 8px ${itemCol(k)}"></i><div class="mn">${itemName(k)}${badge}${have?` <span class="mh">× ${Math.floor(have)}</span>`:''}${info}${seen}</div>
     ${price}<div class="mb">${btn||'<span></span>'}</div></div>`}
-function showStation(){state='station';const id=fr.sys,s=getSys(id),t=tradeOf(id);rememberPrices(id);computeStats();
-  let body='';
-  if(stationTab==='ore')body=`<div class="market">${TYPE_KEYS.map(k=>marketRow(k,id)).join('')}</div>`;
-  else if(stationTab==='goods'){const list=[...t.sells,...Object.keys(fr.cargo).filter(k=>isGood(k)&&!t.sells.includes(k)),...Object.keys(t.buys).filter(k=>!t.sells.includes(k)&&!fr.cargo[k])];
-    body=`<div class="help" style="margin:4px 0 6px;text-align:left">${s.station} sells: <b>${t.sells.map(itemName).join(', ')}</b>. Pays extra for: ${Object.keys(t.buys).map(itemName).join(', ')}.${t.black?' <span style="color:#ff9aa8">Black market: buys contraband.</span>':''}${t.navy?' <span style="color:#ffc845">⚓ Navy patrols scan arriving ships.</span>':''}</div>
-      <div class="market">${[...new Set(list)].map(k=>marketRow(k,id)).join('')}</div>`}
-  else{const deals=tradeDeals();body=`<div class="help" style="margin:4px 0 6px;text-align:left">Best deals the computer knows about, after fuel for the trip. Prices come from your visits and from rumours, and they drift every day.</div>
-    ${deals.length?deals.map(dealHtml).join(''):'<p style="color:#93a8c6">No good deals known yet. Visit other stations or listen for rumours in the station news to learn their prices.</p>'}`}
-  const sellable=Object.keys(fr.cargo).filter(k=>canSellAt(id,k)),total=sellable.reduce((a,k)=>a+priceOf(id,k)*fr.cargo[k],0);
-  showOv(`<div class="kicker">${s.name.toUpperCase()} · ${(s.kind||'').toUpperCase()} · DAY ${fr.day}</div><h2>${s.icon||''} ${s.station}</h2>
-    <div class="row2"><button class="btn" data-act="undock">🚀 Undock</button><button class="btn alt" data-act="shop">🛠 Shipyard</button></div>
-    ${fr.fuel<FUEL_MAX?`<div class="row2"><button class="btn alt" data-act="refuel" ${credits<fuelPrice()?'disabled':''}>⛽ Refuel ${FUEL_MAX-fr.fuel} jump${FUEL_MAX-fr.fuel>1?'s':''} · ${fmt(fuelPrice()*(FUEL_MAX-fr.fuel))} cr</button></div>`:''}
-    <div class="radio"><b>STATION NEWS</b>${fr.news===fr.day*1000+hashStr(id)%997?fr.newsTxt:(fr.newsTxt=newsFor(id),fr.news=fr.day*1000+hashStr(id)%997,fr.newsTxt)}</div>
-    <div class="rows"><span>Credits</span><span class="v credits">${fmt(credits)} cr</span>${holdBar()}<span>Fuel</span><span class="v">${fr.fuel} / ${FUEL_MAX}</span>
-    <span>Hull</span><span class="v" style="color:${hull<S.hullMax*.5?'#ff7a5a':'inherit'}">${Math.round(hull)} / ${S.hullMax}</span></div>
-    <div class="tabs">${[['ore','Ore'],['goods','Goods'],['computer','Trade computer']].map(([k,l])=>`<button data-act="stab" data-v="${k}" class="${stationTab===k?'on':''}">${l}</button>`).join('')}</div>
-    ${body}
-    ${sellable.length?`<div class="btns" style="margin-top:10px"><button class="btn" data-act="sellall">Sell everything sellable · ${fmt(Math.round(total))} cr</button></div>`:''}
-    <div class="btns"><button class="btn alt" data-act="menu">Main menu</button></div>
-    <div class="help">▲ pays more than usual here · ▼ pays less. Selling a lot lowers the price here for a few days; buying a lot raises it.</div>`)}
+// ---- the station as a place: concourse, bar, trade office, shipyard, hangar ----
+// Full-screen scenes: drawn art at the top (or left on wide screens) with door hotspots, the area's content below, a nav bar to walk around.
+// The concourse and hangar art has a real window: the live game canvas (this system's sun, planet and nebula) shows through it.
+let stationArea='concourse';
+const AREAS=[['concourse','◎','Concourse'],['bar','🍸','Bar'],['trade','⇄','Trade office'],['shipyard','🛠','Shipyard'],['hangar','🚀','Hangar']];
+function sceneOv(area,body){stationArea=area;const id=fr.sys,s=getSys(id),accent=sunCol(s);
+  if(typeof SY!=='undefined'&&SY.deferred&&canAsk()&&!SY.busy&&!SY.asking){SY.deferred=false;setTimeout(()=>syncNow(false),400)}
+  ov.innerHTML=`<div class="stn stn-${area}" style="--acc:${accent}">
+    <div class="stn-top"><div class="stn-name">${s.icon||''} ${s.station}<small>${s.name} · ${s.kind||''} · day ${fr.day}</small></div>
+      <div class="stn-stats"><span class="credits">${fmt(credits)} cr</span><span>Cargo ${Math.floor(cargoUsed())}/${cargoCap()}</span><span>Fuel ${fr.fuel}/${FUEL_MAX}</span><span>Rep: ${repName(id)}</span></div></div>
+    <div class="stn-art"><div class="stn-art-in">${sceneArt(area,s)}${area==='concourse'?sceneDoors():''}</div></div>
+    <div class="stn-body">${body}</div>
+    <nav class="stn-nav">${AREAS.map(([k,ic,l])=>`<button data-act="area" data-v="${k}" class="${k===area?'on':''}"><span>${ic}</span>${l}</button>`).join('')}</nav></div>`;
+  ov.classList.add('show','scene');const b=ov.querySelector('.stn-body');if(b)b.scrollTop=0;document.body.classList.remove('playing','paused');laserSound(false);
+  if(area==='concourse'||area==='hangar')requestAnimationFrame(()=>stationView(area))}
+// put this system's sun and planet into the window of the concourse / the open bay door of the hangar (the live canvas shows through)
+let stnPrev=null;
+function stationView(area){const el=ov.querySelector('.stn-art-in');if(!el||!fr)return;const r=el.getBoundingClientRect(),s=getSys(fr.sys),L=s.look||{},W=area==='concourse'?[60,18,280,104]:[90,20,220,100];
+  const wx=r.left+r.width*(W[0]+W[2]/2)/400,wy=r.top+r.height*(W[1]+W[3]/2)/240,ww=r.width*W[2]/400,wh=r.height*W[3]/240,mn=Math.min(SW,SH),sun=SUN[L.sun]||SUN.yellow;
+  suns=[{x:(wx-ww*.3)/SW,y:(wy-wh*.18)/SH,r:Math.min(.08,wh*.16*sun.s/mn),c:sun.g}];if(L.sun2){const s2=SUN[L.sun2]||SUN.white;suns.push({x:(wx-ww*.18)/SW,y:(wy-wh*.05)/SH,r:wh*.09/mn,c:s2.g})}
+  planetPos={x:(wx+ww*.24)/SW,y:(wy+wh*.42)/SH};planetScale=wh*(L.giant?.9:.6)/mn;siteNow='belt'}
+
+// door hotspots over the concourse art (art coordinates are 400×240)
+function sceneDoors(){return[['bar',22],['trade',118],['shipyard',222],['hangar',318]].map(([a,x])=>`<button class="door" data-act="area" data-v="${a}" style="left:${x/4}%;top:${148/2.4}%;width:${60/4}%;height:${86/2.4}%" aria-label="${a}"></button>`).join('')}
+function svgShip(w,x,y,h){const d=S.sh;return`<image href="${shipImg(d)}" x="${x-h*.66}" y="${y-h/2}" width="${h*1.33}" height="${h}" preserveAspectRatio="xMidYMid meet"/>`}
+function sceneArt(area,s){const A=sunCol(s),V='viewBox="0 0 400 240" preserveAspectRatio="xMidYMid meet"';
+  const defs=`<defs><linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16213a"/><stop offset="1" stop-color="#0a0f1c"/></linearGradient>
+    <radialGradient id="lamp"><stop offset="0" stop-color="#ffd27a" stop-opacity=".9"/><stop offset="1" stop-color="#ffd27a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="cool"><stop offset="0" stop-color="#7fe8ff" stop-opacity=".7"/><stop offset="1" stop-color="#7fe8ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a2236"/><stop offset="1" stop-color="#05070d"/></linearGradient></defs>`;
+  if(area==='concourse'){const doors=[['BAR',22,'#ffb347'],['TRADE',118,'#5ef0ff'],['SHIPYARD',222,'#ff8a3d'],['HANGAR',318,'#7dff7a']];
+    return`<svg ${V}>${defs}<path fill-rule="evenodd" fill="url(#wall)" d="M0 0H400V240H0Z M70 18 H330 Q340 18 340 28 V112 Q340 122 330 122 H70 Q60 122 60 112 V28 Q60 18 70 18Z"/>
+      <rect x="60" y="18" width="280" height="104" rx="10" fill="none" stroke="${A}" stroke-opacity=".5" stroke-width="2"/>${[130,200,270].map(x=>`<line x1="${x}" y1="18" x2="${x}" y2="122" stroke="#0a0f1c" stroke-width="4"/>`).join('')}
+      <path d="M80 26 L120 26 L96 60Z" fill="#fff" opacity=".05"/><rect x="0" y="122" width="400" height="20" fill="#0d1424"/><rect x="0" y="140" width="400" height="100" fill="url(#floor)"/>
+      ${[40,120,200,280,360].map(x=>`<line x1="${x}" y1="240" x2="${200+(x-200)*.35}" y2="140" stroke="${A}" stroke-opacity=".08"/>`).join('')}
+      ${doors.map(([l,x,c])=>`<g><rect x="${x}" y="148" width="60" height="86" rx="4" fill="#0b1120" stroke="${c}" stroke-opacity=".7"/><rect x="${x+6}" y="156" width="48" height="70" fill="${c}" opacity=".08"/>
+        <rect x="${x}" y="142" width="60" height="5" fill="${c}" opacity=".9"/><text x="${x+30}" y="196" fill="${c}" font-size="9" font-family="Orbitron" text-anchor="middle" letter-spacing="1">${l}</text></g>`).join('')}
+      <ellipse cx="200" cy="10" rx="180" ry="6" fill="url(#cool)" opacity=".5"/></svg>`}
+  if(area==='bar')return`<svg ${V}>${defs}<rect width="400" height="240" fill="#1d1008"/><rect y="0" width="400" height="150" fill="#2a160a"/>
+    ${[0,1,2].map(r=>`<rect x="40" y="${30+r*30}" width="320" height="4" fill="#4a2a14"/>${Array.from({length:14},(_,i)=>{const x=50+i*22+(r%2)*9,h=10+((i*7+r*3)%8),c=['#ff9a3c','#7fd8ff','#9dff9a','#ff5a7a','#ffd84a','#c8b0ff'][(i+r)%6];
+      return`<rect x="${x}" y="${30+r*30-h}" width="7" height="${h}" rx="2" fill="${c}" opacity=".75"/><rect x="${x+2}" y="${30+r*30-h-4}" width="3" height="5" fill="${c}" opacity=".6"/>`}).join('')}`).join('')}
+    ${[80,200,320].map(x=>`<circle cx="${x}" cy="18" r="40" fill="url(#lamp)" opacity=".55"/><rect x="${x-1}" y="0" width="2" height="12" fill="#3a2414"/><ellipse cx="${x}" cy="14" rx="9" ry="5" fill="#ffd27a"/>`).join('')}
+    <circle cx="200" cy="112" r="13" fill="#140a05"/><path d="M180 150 Q182 125 200 124 Q218 125 220 150Z" fill="#140a05"/><rect x="196" y="112" width="8" height="3" fill="#ffb347" opacity=".6"/>
+    <rect x="0" y="150" width="400" height="22" fill="#5a3418"/><rect x="0" y="150" width="400" height="3" fill="#ffb347" opacity=".5"/><rect x="0" y="172" width="400" height="68" fill="#120904"/>
+    ${[[70,1],[320,-1]].map(([x,f])=>`<circle cx="${x}" cy="160" r="11" fill="#0a0503"/><path d="M${x-14} 200 Q${x-12} 172 ${x} 171 Q${x+12} 172 ${x+14} 200Z" fill="#0a0503"/><rect x="${x-10}" y="200" width="20" height="4" fill="#3a2414"/><rect x="${x-1}" y="204" width="2" height="30" fill="#3a2414"/>
+      <rect x="${x+f*16}" y="142" width="6" height="9" rx="1" fill="#ffd27a" opacity=".7"/>`).join('')}
+    <text x="200" y="232" fill="#ffb347" opacity=".35" font-size="10" font-family="Orbitron" text-anchor="middle" letter-spacing="3">THE RUSTY BOLT</text></svg>`;
+  if(area==='trade')return`<svg ${V}>${defs}<rect width="400" height="240" fill="#06121c"/>
+    ${Array.from({length:12},(_,i)=>{const x=20+(i%6)*62,y=16+Math.floor(i/6)*58,c=i%3?'#5ef0ff':'#ffc845';let pts='';for(let j=0;j<8;j++)pts+=`${x+6+j*6.5},${y+38-((i*13+j*17)%25)} `;
+      return`<rect x="${x}" y="${y}" width="56" height="50" rx="3" fill="#0b2232" stroke="${c}" stroke-opacity=".5"/><polyline points="${pts}" fill="none" stroke="${c}" stroke-width="1.5" opacity=".9"/>
+        <rect x="${x+5}" y="${y+5}" width="${14+i*2%20}" height="3" fill="${c}" opacity=".6"/>`}).join('')}
+    <rect x="0" y="134" width="400" height="12" fill="#0b2232"/><text x="10" y="143" fill="#5ef0ff" font-size="8" font-family="Orbitron" opacity=".8">IRON ▲ 3% · GOLD ▼ 1% · WHISKY ▲ 12% · CRYONITE ▲ 7% · FOOD ▼ 4% · ELECTRONICS ▲ 2% · TEA ▲ 9%</text>
+    <rect x="0" y="146" width="400" height="94" fill="url(#floor)"/><rect x="120" y="176" width="160" height="40" rx="4" fill="#0e2a3c" stroke="#5ef0ff" stroke-opacity=".4"/>
+    <circle cx="200" cy="160" r="11" fill="#04101a"/><path d="M182 178 Q184 168 200 167 Q216 168 218 178Z" fill="#04101a"/><rect x="150" y="182" width="40" height="22" fill="#5ef0ff" opacity=".15"/><rect x="210" y="182" width="40" height="22" fill="#ffc845" opacity=".12"/>
+    <circle cx="200" cy="60" r="140" fill="url(#cool)" opacity=".18"/></svg>`;
+  if(area==='shipyard')return`<svg ${V}>${defs}<rect width="400" height="240" fill="#140c06"/>
+    ${[40,120,280,360].map(x=>`<rect x="${x-4}" y="0" width="8" height="240" fill="#2a1a0c"/>${[30,80,130,180].map(y=>`<line x1="${x-4}" y1="${y}" x2="${x+4}" y2="${y+30}" stroke="#4a2c12" stroke-width="2"/>`).join('')}`).join('')}
+    <rect x="0" y="26" width="400" height="8" fill="#3a2410"/><rect x="190" y="34" width="4" height="40" fill="#5a3a1a"/><rect x="206" y="34" width="4" height="40" fill="#5a3a1a"/>
+    <circle cx="200" cy="120" r="110" fill="url(#lamp)" opacity=".2"/>${svgShip(0,200,120,110)}
+    ${[[150,90],[262,140],[180,170]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="3" fill="#ffd27a"/><circle cx="${x}" cy="${y}" r="10" fill="url(#lamp)"/>`).join('')}
+    <rect x="0" y="196" width="400" height="44" fill="#0a0603"/>${Array.from({length:10},(_,i)=>`<rect x="${i*40}" y="196" width="20" height="6" fill="#ffb347" opacity=".5"/>`).join('')}</svg>`;
+  return`<svg ${V}>${defs}<path fill-rule="evenodd" fill="#0a1410" d="M0 0H400V240H0Z M90 20 H310 V120 H90Z"/><rect x="90" y="20" width="220" height="100" fill="none" stroke="#7dff7a" stroke-opacity=".35"/>
+    ${[95,305].map(x=>Array.from({length:6},(_,i)=>`<circle cx="${x}" cy="${28+i*17}" r="2.5" fill="#7dff7a" opacity="${.3+(i%2)*.5}"/>`).join('')).join('')}
+    <rect x="0" y="120" width="400" height="120" fill="url(#floor)"/><ellipse cx="200" cy="190" rx="130" ry="26" fill="#0e2a1c" stroke="#7dff7a" stroke-opacity=".5"/>
+    <ellipse cx="200" cy="190" rx="90" ry="16" fill="none" stroke="#7dff7a" stroke-opacity=".3" stroke-dasharray="6 6"/>${svgShip(0,200,166,74)}
+    <path d="M40 240 Q60 190 120 186" fill="none" stroke="#ffc845" stroke-width="4" opacity=".6"/><text x="200" y="232" fill="#7dff7a" opacity=".4" font-size="9" font-family="Orbitron" text-anchor="middle" letter-spacing="3">LAUNCH BAY</text></svg>`}
+
+// ---- reputation with each station: deliveries of what it needs, contracts ----
+const REP_STEPS=[0,5,15,30],REP_NAMES=['Stranger','Known face','Regular','Friend of the station'];
+const repOf=id=>(fr.rep&&fr.rep[id])||0;
+const repLvl=id=>{const r=repOf(id);let l=0;for(let i=0;i<REP_STEPS.length;i++)if(r>=REP_STEPS[i])l=i;return l};
+const repName=id=>REP_NAMES[repLvl(id)];
+function addRep(id,v){fr.rep=fr.rep||{};const before=repLvl(id);fr.rep[id]=Math.max(-10,repOf(id)+v);if(repLvl(id)>before)toast(`${getSys(id).station}: you are now a ${REP_NAMES[repLvl(id)].toLowerCase()}!`)}
+const sellPriceHere=k=>Math.round(priceOf(fr.sys,k)*(1+.03*repLvl(fr.sys)));
+
+// ---- contracts from patrons in the bar ----
+const QUEST={crate:{name:'Sealed Crate',col:'#e8e8e8',desc:'Do not open. (It hums.)'}};
+function contractOffers(id){const R=srand(hashStr(fr.seed+'jobs2'+id+fr.day)),out=[],dests=[...new Set([...fr.visited,...fr.visited.flatMap(v=>sysLinks(v))])].filter(d=>d!==id&&getSys(d)&&sysUnlocked(d));
+  if(!dests.length)return out;
+  for(let i=0;i<2;i++){const to=dests[Math.floor(R()*dests.length)],rt=routeTo(to),j=rt?rt.length:3,typ=R()<.62?'supply':'crate';
+    if(typ==='supply'){const want=Object.keys(tradeOf(to).buys).filter(k=>GOODS[k]&&!GOODS[k].illegal),k=want.length?want[Math.floor(R()*want.length)]:'food',qty=Math.round((8+R()*14)*(1+homeProgress()/25));
+      const hot=R()<.35;out.push({cid:id+fr.day+'-'+i,typ,from:id,to,k,qty,due:fr.day+j+2+Math.floor(R()*3),reward:Math.round(GOODS[k].val*qty*(hot?2.6:2)/10)*10,hot,
+        who:pick(['a nervous quartermaster','a cheerful farmer','a medic with tired eyes','a dock worker with a bandaged arm','an old miner who knew your mother (apparently)']),
+        line:hot?`“We need ${qty} ${itemName(k)} at ${getSys(to).station}, fast. Pirates know about it too, so watch your back.”`:`“Could you bring ${qty} ${itemName(k)} to ${getSys(to).station}? You buy them, I pay double.”`})}
+    else{const kind=R();out.push({cid:id+fr.day+'-'+i,typ,from:id,to,k:'crate',qty:5,due:fr.day+j+3,reward:Math.round((350+homeProgress()*55)/10)*10,surprise:kind<.25?'smuggle':kind<.4?'kitten':'normal',
+      who:pick(['a person in a very large hat','a polite robot with a dented head','a woman who keeps checking the door','a man who says his name is “Not Important”']),
+      line:`“Take this crate to ${getSys(to).station}. Don’t open it. Don’t shake it. And if it starts humming, that’s normal.”`})}}
+  return out.filter(o=>!(fr.jobs||[]).some(j=>j.cid===o.cid))}
+function acceptContract(o){fr.jobs=fr.jobs||[];if(o.typ==='crate'){if(holdRoom()<5)return toast('You need 5 free units in your hold for the crate.');fr.cargo.crate=(fr.cargo.crate||0)+5}
+  fr.jobs.push(o);saveGame();toast(`Job accepted: deliver to ${getSys(o.to).station} by day ${o.due}.`)}
+function checkDeadlines(){const keep=[];for(const j of fr.jobs||[]){if(fr.day>j.due){if(j.typ==='crate'){fr.cargo.crate=Math.max(0,(fr.cargo.crate||0)-5);if(!fr.cargo.crate)delete fr.cargo.crate}
+    addRep(j.from,-2);toast(`Missed the deadline for ${getSys(j.to).station}. The client is not happy.`)}else keep.push(j)}fr.jobs=keep}
+function deliverContract(cid){const j=(fr.jobs||[]).find(x=>x.cid===cid);if(!j||j.to!==fr.sys)return;
+  if(j.typ==='supply'){if((fr.cargo[j.k]||0)<j.qty)return toast(`You need ${j.qty} ${itemName(j.k)} in your hold.`);fr.cargo[j.k]-=j.qty;if(fr.cargo[j.k]<.01)delete fr.cargo[j.k];credits+=j.reward;score+=j.reward;
+    addRep(fr.sys,3);addRep(j.from,1);fr.jobs=fr.jobs.filter(x=>x!==j);sfx.clear();saveGame();toast(`Delivered! +${fmt(j.reward)} cr`);return}
+  if((fr.cargo.crate||0)<5)return toast('The crate is not in your hold any more.');fr.cargo.crate-=5;if(fr.cargo.crate<.01)delete fr.cargo.crate;
+  let pay=j.reward,msg='The client takes the crate without a word and pays.';
+  if(j.surprise==='smuggle'){pay=Math.round(pay*1.5);msg='The client opens it a crack: Stardust, a lot of it. “Thanks for not asking.” They pay extra for your discretion.'}
+  if(j.surprise==='kitten'){pay=Math.round(pay*1.3);msg='The crate meows. Inside: a fluffy space kitten that hums when happy. The client is delighted and pays a bonus.'}
+  credits+=pay;score+=pay;addRep(fr.sys,3);fr.jobs=fr.jobs.filter(x=>x!==j);sfx.clear();saveGame();state='station';
+  sceneOv('trade',`<h2>Delivery complete</h2><p>${msg}</p><div class="rows"><span>Paid</span><span class="v credits">${fmt(pay)} cr</span></div><div class="btns"><button class="btn" data-act="area" data-v="trade">Back to the trade office</button></div>`)}
+const jobsHere=()=>(fr.jobs||[]).filter(j=>j.to===fr.sys);
+function jobLine(j){const left=j.due-fr.day;return`<div class="deal"><div><b>${j.typ==='crate'?'📦 Sealed crate':`${j.qty} ${itemName(j.k)}`}${j.hot?' <span class="tagi">HOT</span>':''}</b>
+  <small>to ${getSys(j.to).station} · ${left>0?`${left} day${left>1?'s':''} left`:'due today'} · pays ${fmt(j.reward)} cr${j.typ==='supply'?` · you have ${Math.floor(fr.cargo[j.k]||0)}/${j.qty}`:''}</small></div>
+  ${j.to===fr.sys?`<button class="buyb" data-act="deliver" data-id="${j.cid}">Deliver</button>`:''}</div>`}
+
+// ---- areas ----
+function stationScene(area){state='station';area=area||stationArea||'concourse';const id=fr.sys,s=getSys(id),t=tradeOf(id);if(stnPrev!==id){setupFieldPreview(s);asteroids=[];holes=[];frost=[];stnPrev=id}rememberPrices(id);computeStats();checkDeadlines();
+  const news=fr.news===fr.day*1000+hashStr(id)%997?fr.newsTxt:(fr.newsTxt=newsFor(id),fr.news=fr.day*1000+hashStr(id)%997,fr.newsTxt);let body='';
+  if(area==='concourse'){const jobs=fr.jobs||[];
+    body=`<div class="radio"><b>STATION NEWS</b>${news}</div>
+      ${jobsHere().length?`<div class="radio" style="border-color:#7dff7a"><b style="color:#7dff7a">DELIVERY HERE</b>You have ${jobsHere().length} job${jobsHere().length>1?'s':''} to hand in at the trade office.</div>`:''}
+      <div class="areas">${AREAS.slice(1).map(([k,ic,l])=>`<button class="area-btn a-${k}" data-act="area" data-v="${k}"><span>${ic}</span><b>${l}</b><small>${{bar:'Rumours, tips and jobs from the locals',trade:'Buy and sell ore and goods, price book, deliveries',shipyard:'Weapons, systems, ships and the Belt',hangar:'Refuel, repair, your jobs, launch'}[k]}</small></button>`).join('')}</div>
+      ${jobs.length?`<div class="kicker" style="margin-top:10px">YOUR JOBS</div>${jobs.map(jobLine).join('')}`:''}
+      <div class="row2"><button class="btn" data-act="undock">🚀 Launch</button><button class="btn alt" data-act="menu">Main menu</button></div>`}
+  else if(area==='bar'){const offers=contractOffers(id),tip=50+homeProgress()*10,free=repLvl(id)>=3;
+    body=`<div class="npc"><b>Bartender</b>${news}</div>
+      <div class="row2"><button class="btn alt" data-act="round" ${!free&&credits<tip?'disabled':''}>🍺 Buy a round · ${free?'on the house':fmt(tip)+' cr'}</button></div>
+      <div class="help" style="text-align:left;margin:4px 0 10px">A round loosens tongues: someone tells you a price they really saw (no tall tales).</div>
+      <div class="kicker">PATRONS WITH JOBS</div>${offers.length?offers.map(o=>`<div class="npc"><b>${o.who}</b>${o.line}<small>Deliver by day ${o.due} · pays <span class="credits">${fmt(o.reward)} cr</span>${o.typ==='supply'?' · you buy the goods yourself':' · needs 5 units of hold'}</small>
+        <button class="buyb" data-act="accept" data-id="${o.cid}">Accept job</button></div>`).join(''):'<p style="color:#93a8c6">Nobody here needs a pilot today.</p>'}`}
+  else if(area==='trade'){const tabs=[['ore','Ore'],['goods','Goods'],['book','Price book']];if(!tabs.some(x=>x[0]===stationTab))stationTab='goods';
+    let inner='';
+    if(stationTab==='ore')inner=`<div class="market">${TYPE_KEYS.map(k=>marketRow(k,id)).join('')}</div>`;
+    else if(stationTab==='goods'){const list=[...t.sells,...Object.keys(fr.cargo).filter(k=>isGood(k)&&!t.sells.includes(k)),...Object.keys(t.buys).filter(k=>!t.sells.includes(k)&&!fr.cargo[k])];
+      inner=`<div class="help" style="margin:4px 0 6px;text-align:left">${s.station} sells: <b>${t.sells.map(itemName).join(', ')}</b>. Pays extra for: ${Object.keys(t.buys).map(itemName).join(', ')}.${t.black?' <span style="color:#ff9aa8">Black market: buys contraband.</span>':''}${t.navy?' <span style="color:#ffc845">⚓ Navy patrols scan arriving ships.</span>':''}</div>
+        <div class="market">${[...new Set(list)].map(k=>marketRow(k,id)).join('')}</div>`}
+    else inner=priceBook();
+    const sellable=Object.keys(fr.cargo).filter(k=>canSellAt(id,k)&&!QUEST[k]),total=sellable.reduce((a,k)=>a+sellPriceHere(k)*fr.cargo[k],0);
+    body=`${jobsHere().length?`<div class="kicker">DELIVERIES FOR THIS STATION</div>${jobsHere().map(jobLine).join('')}`:''}
+      <div class="help" style="text-align:left;margin:2px 0 8px">Your standing here: <b style="color:var(--acc)">${repName(id)}</b>${repLvl(id)?` (prices ${repLvl(id)*3}% better for you)`:''}. Deliver what they need to earn their trust.</div>
+      <div class="tabs">${tabs.map(([k,l])=>`<button data-act="stab" data-v="${k}" class="${stationTab===k?'on':''}">${l}</button>`).join('')}</div>${inner}
+      ${sellable.length?`<div class="btns" style="margin-top:10px"><button class="btn" data-act="sellall">Sell everything sellable · ${fmt(Math.round(total))} cr</button></div>`:''}
+      <div class="help">▲ pays more than usual here · ▼ pays less. Selling a lot lowers the price here for a few days; buying a lot raises it.</div>`}
+  else if(area==='hangar'){const miss=Math.ceil(S.hullMax-hull),rep=Math.ceil(miss*1.4);
+    body=`<div class="rows"><span>Hull</span><span class="v" style="color:${hull<S.hullMax*.5?'#ff7a5a':'inherit'}">${Math.round(hull)} / ${S.hullMax}</span><span>Fuel</span><span class="v">${fr.fuel} / ${FUEL_MAX} jumps</span>${holdBar()}<span>Ships · Novas</span><span class="v">${lives} · ${bombs}</span></div>
+      <div class="row2">${fr.fuel<FUEL_MAX?`<button class="btn alt" data-act="refuel" ${credits<fuelPrice()?'disabled':''}>⛽ Refuel · ${fmt(fuelPrice()*(FUEL_MAX-fr.fuel))} cr</button>`:''}
+        ${miss>0?`<button class="btn alt" data-act="repairH" ${credits<=0?'disabled':''}>🔧 Repair · ${fmt(Math.min(rep,credits))} cr</button>`:''}</div>
+      ${(fr.jobs||[]).length?`<div class="kicker" style="margin-top:8px">YOUR JOBS</div>${fr.jobs.map(jobLine).join('')}`:''}
+      ${cargoUsed()>cargoCap()*.7?'<p style="color:#ffc845;font-size:13.5px">Heavy hold: your ship is slower and juicier for pirates.</p>':''}
+      <div class="btns"><button class="btn" data-act="undock">🚀 Launch</button></div>`}
+  else return showShop();
+  sceneOv(area,body)}
+// price book: facts only (what you saw, how old, rumours unconfirmed), no "best deal" ranking
+let bookItem=null;
+function priceBook(){const items=[...new Set([...Object.keys(fr.cargo).filter(k=>!QUEST[k]),...tradeOf(fr.sys).sells,...TYPE_KEYS.filter(k=>fr.cargo[k])])];if(!bookItem||!ITEM_KEYS.includes(bookItem))bookItem=items[0]||'iron';
+  const ids=[...new Set([...Object.keys(fr.known),...fr.rum.map(r=>r.id)])].filter(getSys),rows=ids.map(id=>({id,kp:knownPrice(id,bookItem)})).filter(r=>r.kp&&canSellAt(r.id,bookItem)).sort((a,b)=>b.kp.p-a.kp.p);
+  return`<div class="help" style="text-align:left;margin:4px 0 6px">What you know about prices for one item: from your own visits and from rumours. Rumours can be wrong, and every price drifts while you are away.</div>
+    <div class="chips">${[...new Set([...items,...ITEM_KEYS.filter(k=>!items.includes(k)&&ids.some(id=>knownPrice(id,k)))])].slice(0,22).map(k=>`<button class="chip ${k===bookItem?'on':''}" data-act="book" data-v="${k}" style="border-color:${itemCol(k)}">${itemName(k)}</button>`).join('')}</div>
+    ${rows.length?rows.map(({id,kp})=>{const r=routeTo(id),age=fr.day-kp.day;return`<div class="deal"><div><b>${getSys(id).station}</b><small>${id===fr.sys?'here, today':`${r?`${r.length} jump${r.length>1?'s':''}`:'route unknown'} · ${age?`${age} day${age>1?'s':''} old`:'today'}${kp.rum?' · <i>rumour, unconfirmed</i>':''}`}</small></div>
+      <div class="dg" style="color:#ffc845">${fmt(kp.p)}<small>cr each</small></div></div>`}).join(''):'<p style="color:#93a8c6">No prices known for this item yet.</p>'}`}
+
+function showStation(){stationScene(stationArea==='shipyard'?'concourse':stationArea)}
 function sysSvg(id){const s=getSys(id),W=340,H=190,cx=W/2,cy=H/2+4,sun=SUN[s.look.sun]||SUN.yellow,col=sun.g;let g='';
   g+=`<circle cx="${cx}" cy="${cy}" r="${30*sun.s}" fill="${sun.g}" opacity=".18"/><circle cx="${cx}" cy="${cy}" r="${12*Math.max(.7,sun.s)}" fill="${sun.c}"/>`;
   if(s.look.sun2){const s2=SUN[s.look.sun2];g+=`<circle cx="${cx+26}" cy="${cy-14}" r="7" fill="${s2.c}"/><circle cx="${cx+26}" cy="${cy-14}" r="16" fill="${s2.g}" opacity=".2"/>`}
@@ -846,7 +1011,7 @@ function sysSvg(id){const s=getSys(id),W=340,H=190,cx=W/2,cy=H/2+4,sun=SUN[s.loo
   if(s.story)for(let i=0;i<10;i++){const sn=s.r*10+i+1,a=Math.PI*.15+i/9*Math.PI*.95,x=cx+Math.cos(a)*150,y=cy+Math.sin(a)*70,done=sn<homeProgress(),next=sn===homeProgress();
     g+=`<circle cx="${x}" cy="${y}" r="${next?8:6}" fill="${done?col:next?'#ffc845':'#202838'}" stroke="${next?'#fff':'rgba(255,255,255,.25)'}"/><text x="${x}" y="${y+3}" fill="${done||next?'#03121a':'#6a7890'}" font-size="7" text-anchor="middle" font-weight="700">${sn}</text>`}
   return`<svg viewBox="0 0 ${W} ${H}" class="sysmap" aria-hidden="true">${g}</svg>`}
-function showSystem(){state='sysmap';const id=fr.sys,s=getSys(id),p=homeProgress();setupFieldPreview(s);
+function showSystem(){state='sysmap';stnPrev=null;const id=fr.sys,s=getSys(id),p=homeProgress();setupFieldPreview(s);
   let story='';if(s.story){const first=s.r*10+1,last=s.r*10+10;
     if(p>=first&&p<=last){const L=storyLoc(p),o=objFor(p);story+=`<div class="loc next"><div><b>Sector ${p}</b> · ${o[1]}<small>${o[2]}</small></div><button class="btn" data-act="fly" data-loc="story:${p}">Fly</button></div>`}
     else if(p>last)story+=`<div class="loc"><div><b>All sectors of ${s.name} cleared</b><small>Replay them for ore and stars below.</small></div></div>`;
@@ -919,6 +1084,8 @@ function gmapDraw(t){if(!gmap||!gmap.cv.isConnected)return false;const{cv,cx,cy,
     g.beginPath();g.rect(x-box,y-box,box*2,box*2);g.fill();g.stroke();
     g.globalCompositeOperation='lighter';const c=sunCol(s);glowOn(g,x,y,box*1.6,c,vis?.95:.45);if((s.look||{}).sun2)glowOn(g,x+box*.45,y-box*.3,box*.9,(SUN[s.look.sun2]||SUN.white).g,vis?.8:.35);g.globalCompositeOperation='source-over';
     g.fillStyle=vis?'#ffffff':'rgba(255,255,255,.5)';g.beginPath();g.arc(x,y,vis?2.2:1.6,0,TAU);g.fill();
+    if(vis&&dangerOf(id)>=1.8){g.strokeStyle=`rgba(255,80,80,${.35+.2*Math.sin(t*.004+x)})`;g.lineWidth=1.5;g.setLineDash([3,4]);g.beginPath();g.arc(x,y,box*1.9,0,TAU);g.stroke();g.setLineDash([])}
+    if((fr.jobs||[]).some(j=>j.to===id)){g.font=`${fs}px sans-serif`;g.textAlign='center';g.fillText('📦',x+box+6,y-box+4)}
     if(here){g.strokeStyle=`rgba(255,255,255,${.35+.25*Math.sin(t*.005)})`;g.lineWidth=1.5;g.beginPath();g.arc(x,y,box*1.55+2*Math.sin(t*.005),0,TAU);g.stroke()}
     g.font=`600 ${fs}px "Exo 2",sans-serif`;g.textAlign='center';g.fillStyle=vis?'#e3efff':'rgba(200,215,235,.6)';
     const label=(vis?(s.icon?s.icon+' ':'')+s.name:'Unexplored')+(open?'':' 🔒');g.fillText(label,x,y+box+fs+2)}
@@ -938,6 +1105,7 @@ function gmapInfo(){const el=document.getElementById('gInfo');if(!el||!gmap)retu
     <button class="btn" data-act="travel" data-id="${id}" ${fr.fuel<n?'disabled':''}>🚀 Travel to ${vis?s.name:'this system'}</button>`}
   el.innerHTML=`<div class="ginfo"><b>${vis?(s.icon||'')+' '+s.name:'Unexplored system'}</b>${here?' <span class="tag">YOU ARE HERE</span>':''}
     <small>${vis?`${s.kind||'Frontier system'} · ${s.station} · danger ${sysN(id)}`:'Long-range scans show a station, nothing more. Go and see.'}</small>
+    <small>Pirate activity: <b style="color:${dangerCol(dangerOf(id))}">${dangerName(dangerOf(id))}</b>${(fr.jobs||[]).some(j=>j.to===id)?' · 📦 delivery due here':''}</small>
     ${kn?`<small>Pays well for: <b style="color:#7dff7a">${pays}</b> · cheap here: ${cheap} <i>(prices from day ${kn.day})</i></small>`:''}${cargoLine}${act}</div>`}
 function showGalaxy(sel){state='galaxy';genNeighbors(fr.sys);
   showOv(`<div class="kicker">STAR MAP · DAY ${fr.day} · FUEL ${fr.fuel}/${FUEL_MAX} · CARGO ${Math.floor(cargoUsed())}/${cargoCap()}</div>
@@ -992,15 +1160,18 @@ function drawWarp(){const t=warp.t,s=getSys(warp.id),f=clamp((t-.6)/(WARP_T-1.2)
   ctx.font='700 13px Orbitron';ctx.textAlign='center';ctx.fillStyle='#cfe8ff';ctx.globalAlpha=Math.min(1,t*2);
   ctx.fillText('JUMPING TO '+(fr.visited.includes(warp.id)?s.name.toUpperCase():'UNEXPLORED SYSTEM'),SW/2,SH*.84);
   ctx.font='600 11px Orbitron';ctx.fillStyle='#7fa8c8';ctx.fillText(fr.route&&fr.route.length>1?`${fr.route.length-1} more jump${fr.route.length>2?'s':''} after this`:'',SW/2,SH*.84+18);ctx.globalAlpha=1}
-let eventRoll=()=>Math.random();   // jump events: <.18 ambush, <.30 wreck (a separate function so tests can steer it)
+let eventRoll=()=>Math.random(),forceEvent=null;   // jump events: <.18 ambush, <.30 wreck (a separate function so tests can steer it)
 function arriveAt(id){fr.fuel--;fr.day++;for(const s of [...Object.values(fr.sat),...Object.values(fr.bsat)])for(const k in s){s[k]*=.7;if(s[k]<.5)delete s[k]}
-  const first=!fr.visited.includes(id);fr.sys=id;if(first)fr.visited.push(id);genNeighbors(id);saveGame();
+  checkDeadlines();const first=!fr.visited.includes(id);fr.sys=id;if(first)fr.visited.push(id);genNeighbors(id);saveGame();
   if(hasContraband()&&tradeOf(id).navy&&scanRoll()<.4){navyScan(id);return}
-  const r=eventRoll(),s=getSys(id),n=sysN(id),more=fr.route&&fr.route.length;
-  if(r<.18&&homeProgress()>3){state='event';showOv(`<div class="kicker">ARRIVING · ${s.name.toUpperCase()}</div><h2 style="color:#ff7a5a">⚠ Pirate ambush!</h2>
+  let r=eventRoll();const s=getSys(id),n=sysN(id),more=fr.route&&fr.route.length;
+  const cv=Object.keys(fr.cargo).reduce((a,k)=>a+(QUEST[k]?60:baseVal(k))*fr.cargo[k],0),hot=(fr.jobs||[]).some(j=>j.hot),
+    pRaid=homeProgress()>3?Math.min(.6,(.05+.09*dangerOf(id))*(.35+Math.min(1.4,cv/(2500+homeProgress()*350)))+(hot?.12:0)):0;
+  if(forceEvent){r=forceEvent==='raid'?-1:forceEvent==='wreck'?pRaid+.01:9}   // tests can force an event
+  if(r<pRaid||(forceEvent==='raid')){state='event';showOv(`<div class="kicker">ARRIVING · ${s.name.toUpperCase()}</div><h2 style="color:#ff7a5a">⚠ ${cargoUsed()>=1?'Pirate raid!':'Pirate ambush!'}</h2>
       <p>${pick(['A pirate gang was waiting at the gate. Their leader says: “Nice cargo. Hand it over.”','Pirates! They have a banner that says WELCOME. It is a trap.','Three pirate ships drop out of nowhere. One of them is painted pink, which is somehow worse.'])}</p>
       <div class="btns"><button class="btn warn" data-act="ambushFight">Fight them</button>${cargoUsed()>0?`<button class="btn alt" data-act="ambushPay">Hand over 25% of your cargo</button>`:''}</div>`);return}
-  if(r<.3){const k=bestType(n),amt=Math.min(holdRoom(),Math.round(rand(4,10)));state='event';
+  if(r<pRaid+.12){const k=bestType(n),amt=Math.min(holdRoom(),Math.round(rand(4,10)));state='event';
     showOv(`<div class="kicker">ARRIVING · ${s.name.toUpperCase()}</div><h2>Drifting wreck</h2><p>${pick(['You find an abandoned freighter. The captain’s log just says “never again”.','A wreck tumbles past the gate. Its cargo bay is still sealed.','Somebody left a cargo pod here with a note: “finders keepers”.'])}</p>
       ${amt>0?`<p>Salvage: <b style="color:${TYPES[k].ore}">${amt} ${TYPES[k].name}</b></p><div class="btns"><button class="btn" data-act="salvage" data-k="${k}" data-v="${amt}">Take it</button><button class="btn alt" data-act="sysmap">Leave it</button></div>`
         :`<p>Your hold is full, so you leave it.</p><div class="btns"><button class="btn" data-act="sysmap">Continue</button></div>`}`);return}
@@ -1014,18 +1185,23 @@ function findLoc(code){const[k,v]=code.split(':');if(k==='story')return storyLoc
 // leaving through the exit gate before the job is done: keep the ore, no reward, no story progress
 function leaveEarly(){laserSound(false);endFlight();cur=null;saveGame();showStation();toast('You left the field. Your ore is in the hold.')}
 const FR_ACT={
-  dock:()=>showStation(),undock:()=>showSystem(),sysmap:()=>showSystem(),galaxy:()=>showGalaxy(),
+  dock:()=>stationScene('concourse'),area:D=>{sfx.click();D.v==='shipyard'?showShop():stationScene(D.v)},
+  round:()=>{const free=repLvl(fr.sys)>=3,c=50+homeProgress()*10;if(!free){if(credits<c)return;credits-=c}const t=barTip();fr.tipTxt=t;saveGame();stationScene('bar');toast(t)},
+  accept:D=>{const o=contractOffers(fr.sys).find(x=>x.cid===D.id);if(o)acceptContract(o);stationScene('bar')},
+  deliver:D=>{deliverContract(D.id);if(state==='station'&&!document.querySelector('.stn h2'))stationScene(stationArea)},
+  book:D=>{bookItem=D.v;stationScene('trade')},
+  repairH:()=>{const miss=S.hullMax-hull,rep=Math.ceil(miss*1.4);if(credits>=rep){credits-=rep;hull=S.hullMax}else{hull+=credits/1.4;credits=0}sfx.buy();saveGame();stationScene('hangar')},undock:()=>showSystem(),sysmap:()=>showSystem(),galaxy:()=>showGalaxy(),
   travel:D=>travel(D.id),contjourney:()=>nextHop(),
   fly:D=>{const L=findLoc(D.loc);if(L)showBrief(L)},
-  sell:D=>{const t=sellOre(D.k);if(t)toast(`Sold ${itemName(D.k)} for ${fmt(t)} cr`);showStation()},
-  buy:D=>{const r=buyGood(D.k,+D.q);toast(r.n?`Bought ${r.n} ${itemName(D.k)} for ${fmt(r.total)} cr`:holdRoom()<1?'Your hold is full.':'Not enough credits.');showStation()},
-  stab:D=>{stationTab=D.v;showStation()},plan:D=>showGalaxy(D.id),
+  sell:D=>{stationArea='trade';const t=sellOre(D.k);if(t)toast(`Sold ${itemName(D.k)} for ${fmt(t)} cr`);showStation()},
+  buy:D=>{stationArea='trade';const r=buyGood(D.k,+D.q);toast(r.n?`Bought ${r.n} ${itemName(D.k)} for ${fmt(r.total)} cr`:holdRoom()<1?'Your hold is full.':'Not enough credits.');showStation()},
+  stab:D=>{stationTab=D.v;stationScene('trade')},plan:D=>showGalaxy(D.id),
   scanSubmit:()=>{const f=confiscate(1);scanDone(`The Navy confiscated your contraband${f?` and fined you ${fmt(f)} cr`:''}.`)},
   scanBribe:()=>{const b=fr.scan?fr.scan.bribe:0;credits-=Math.min(credits,b);if(Math.random()<.65)scanDone(`The officer pockets ${fmt(b)} cr and waves you through. \u201cNice weather.\u201d`);else{const f=confiscate(2);scanDone(`Bribe refused! Contraband confiscated, double fine: ${fmt(f)} cr (and they kept the bribe).`)}},
-  sellall:()=>{sellAll();showStation()},
+  sellall:()=>{stationArea='trade';sellAll();showStation()},
   refuel:()=>{const need=FUEL_MAX-fr.fuel,can=Math.min(need,Math.floor(credits/fuelPrice()));if(can>0){credits-=can*fuelPrice();fr.fuel+=can;sfx.buy();saveGame()}showStation()},
   salvage:D=>{const k=D.k,v=Math.min(+D.v,holdRoom());fr.cargo[k]=(fr.cargo[k]||0)+v;sfx.pu();saveGame();toast(`+${v} ${TYPES[k].name} in your hold`);showSystem()},
-  ambushFight:()=>{const id=fr.sys;startFlight({kind:'ambush',n:sysN(id),mission:'ambush',name:'Pirate ambush',site:'belt'})},
+  ambushFight:()=>{const id=fr.sys,raid=cargoUsed()>=1;startFlight({kind:'ambush',n:sysN(id),mission:'ambush',name:raid?'Pirate raid':'Pirate ambush',site:'belt',raid})},
   refuelShop:()=>{FR_ACT.refuel();showShop()},
   ambushPay:()=>{for(const k in fr.cargo){fr.cargo[k]*=.75;if(fr.cargo[k]<.01)delete fr.cargo[k]}saveGame();toast('The pirates take their cut and fly off laughing.');showSystem()},
 };
@@ -1114,7 +1290,7 @@ function setupField(n,withShip){
   }
   ship=withShip?{x:0,y:mission==='defend'?150:0,vx:0,vy:0,a:-Math.PI/2,thrusting:false,fireT:0,missT:1.5,inv:2,dead:false,respawn:0,lastHit:9,contactT:0,shieldFlash:0,
     pu:{rapid:0,over:0,magnet:0,double:0},chill:0,combo:0,comboT:0,wings:[{x:0,y:0,fireT:.5},{x:0,y:0,fireT:.8}]}:null;
-  if(ship)[ship.x,ship.y]=spawnPos();cam.x=ship?ship.x:0;cam.y=ship?ship.y:0;levelTime=0;clearT=-1;exitGate=null;fieldOre=0;fieldGoal=withShip&&mission==='clear'&&!spawnQ.length?FIELD_ORE:0;
+  if(ship)[ship.x,ship.y]=spawnPos();cam.x=ship?ship.x:0;cam.y=ship?ship.y:0;levelTime=0;clearT=-1;exitGate=null;pods=[];podsLost=0;fieldOre=0;fieldGoal=withShip&&mission==='clear'&&!spawnQ.length?FIELD_ORE:0;
   if(withShip&&mission==='clear')openExitGate(true);failT=-1;shake=0;banner=null}
 
 function segDist(px,py,ax,ay,bx,by){const vx=bx-ax,vy=by-ay,l2=vx*vx+vy*vy||1,t=clamp(((px-ax)*vx+(py-ay)*vy)/l2,0,1);return Math.hypot(px-ax-vx*t,py-ay-vy*t)}
@@ -1184,7 +1360,7 @@ function breakAsteroid(a,noDrop){if(a.kind==='lode')return crackLode(a);const T=
   for(let i=0;i<drops;i++)spawnOre(a.x,a.y,a.type);
   if(Math.random()<.012*a.tier)spawnPU(a.x,a.y)}
 
-function killEnemy(e){e.dead=true;const boss=e.boss;explode(e.x,e.y,boss?110:e.r*1.7,'#ff5a3c');
+function killEnemy(e){if(e.pods)for(const p of e.pods){p.taken=false;p.by=null;p.x=e.x;p.y=e.y;p.vx=rand(-70,70);p.vy=rand(-70,70)}e.pods=null;e.dead=true;const boss=e.boss;explode(e.x,e.y,boss?110:e.r*1.7,'#ff5a3c');
   if(boss){for(let i=0;i<5;i++)setTimeout(()=>explode(e.x+rand(-70,70),e.y+rand(-70,70),60,'#ffb347'),i*140)}
   sfx.boom(true);shake=Math.max(shake,boss?24:6);if(levelStats)levelStats.kills++;
   const drops={drone:3,gunship:5,kamikaze:1,minelayer:4,swarmer:Math.random()<.4?1:0,sniper:4,medic:3,scav:1,pylon:2}[e.kind]??28;
@@ -1198,6 +1374,7 @@ function killEnemy(e){e.dead=true;const boss=e.boss;explode(e.x,e.y,boss?110:e.r
 
 function hurt(d,quiet){if(!ship||ship.dead||ship.inv>0)return;ship.lastHit=0;
   if(shield>0){const ab=Math.min(shield,d);shield-=ab;d-=ab;ship.shieldFlash=1;if(shield<=0&&!quiet){sfx.shieldDown();buzz([30,30,30],'sd',300)}}
+  if(d>0&&!quiet&&cur&&cur.raid&&cargoUsed()>=1&&Math.random()<.45)dropPod(ship.x,ship.y);
   if(d>0){hull-=d;levelStats.damaged=true;if(!quiet){sfx.hurt();buzz(Math.round(Math.min(60,20+d*1.5)),'h',120)}}else if(!quiet){sfx.shield();buzz(12,'s',150)}
   if(!quiet)shake=Math.max(shake,6);if(hull<=0){hull=0;die()}}
 function die(){if(fr&&cargoUsed()>0){let lost=0;for(const k in fr.cargo){const l=fr.cargo[k]*.3;fr.cargo[k]-=l;lost+=l;if(fr.cargo[k]<.01)delete fr.cargo[k]}levelStats.lost+=lost;floatText(ship.x,ship.y-30,'CARGO LOST','#ff7a5a',16)}
@@ -1292,7 +1469,7 @@ function updateShip(dt){
   ship.inv=Math.max(0,ship.inv-dt);ship.contactT-=dt;ship.lastHit+=dt;ship.shieldFlash=Math.max(0,ship.shieldFlash-dt*2.5);
   for(const k in ship.pu)ship.pu[k]=Math.max(0,ship.pu[k]-dt);ship.comboT-=dt;if(ship.comboT<=0)ship.combo=0;
   ship.chill=Math.max(0,ship.chill-dt);for(const f of frost){if((ship.x-f.x)**2+(ship.y-f.y)**2<f.r*f.r)ship.chill=Math.max(ship.chill,.25)}
-  const chillMul=ship.chill>0?.58:1;
+  const chillMul=(ship.chill>0?.58:1)*(fr&&inFlight?1-.22*Math.min(1,cargoUsed()/Math.max(1,cargoCap())):1);   // frost and a heavy hold slow you down
   if(ship.lastHit>2.2)shield=Math.min(S.shieldMax,shield+S.shieldRegen*dt);
   let ax=0,ay=0,thr=false,firing=false,aimA=null;
   if(keys.ArrowLeft||keys.KeyA)ship.a-=4.4*dt;if(keys.ArrowRight||keys.KeyD)ship.a+=4.4*dt;
@@ -1386,6 +1563,7 @@ function update(dt){
     if(ship&&!ship.dead&&(b.x-ship.x)**2+(b.y-ship.y)**2<(S.r+(b.homing?8:4))**2){b.dead=true;hurt(b.dmg);if(b.chill&&ship&&!ship.dead){ship.chill=Math.max(ship.chill,1.6);sfx.freeze()}sparks(b.x,b.y,6,b.ice?'#bff8ff':shield>0?'#5ef0ff':'#ff7a5a',120);continue}
     if(rig&&!rig.dead&&(b.x-rig.x)**2+(b.y-rig.y)**2<rig.r*rig.r){b.dead=true;hurtRig(b.dmg*.7);sparks(b.x,b.y,5,'#ffe0a0',100)}}
   bullets=bullets.filter(b=>!b.dead);ebullets=ebullets.filter(b=>!b.dead);missiles=missiles.filter(m=>!m.dead);
+  updatePods(dt);
   // ore & power-ups
   const vac=false,mr=magnetR(),room=(mission==='quota'&&clearT<0)||holdRoom()>=1;
   if(!room&&playing&&ship&&!ship.dead&&ores.some(o=>Math.hypot(o.x-ship.x,o.y-ship.y)<mr)&&!thr('hold',2500))banner={txt:'HOLD FULL · SELL AT A STATION',col:'#ff9a3c',t:0};
@@ -1425,8 +1603,21 @@ function collectPU(p){const P=PU[p.type];sfx.pu();if(!ship)return;
 
 function edgePoint(minD){let x,y,t=0;do{const s=Math.floor(Math.random()*4),p=rand(-HALF+60,HALF-60),e=HALF-60;[x,y]=[[p,-e],[e,p],[p,e],[-e,p]][s];t++}
   while(ship&&Math.hypot(x-ship.x,y-ship.y)<minD&&t<20);return[x,y]}
+function raidGrab(e,dt,steer,n){const free=pods.filter(p=>!p.taken&&!p.gone);let gx=null,gy=null;
+  if(e.pods&&e.pods.length){if(Math.abs(e.x)>Math.abs(e.y)){gx=Math.sign(e.x)*HALF;gy=e.y}else{gx=e.x;gy=Math.sign(e.y)*HALF}
+    if(Math.abs(e.x)>=HALF-e.r-4||Math.abs(e.y)>=HALF-e.r-4){for(const p of e.pods){p.gone=true;podsLost+=p.q}e.pods=null;e.dead=true;floatText(e.x,e.y,'CARGO STOLEN','#ff7a5a',16);sfx.steal();return true}}
+  else if(free.length){let b=free[0];for(const p of free)if(Math.hypot(p.x-e.x,p.y-e.y)<Math.hypot(b.x-e.x,b.y-e.y))b=p;gx=b.x;gy=b.y;if(Math.hypot(b.x-e.x,b.y-e.y)<e.r+14){b.taken=true;b.by=e;(e.pods=e.pods||[]).push(b);sfx.steal()}}
+  if(gx===null)return false;const dx=gx-e.x,dy=gy-e.y,d=Math.hypot(dx,dy)||1;steer(dx/d,dy/d,320,175+n*2);e.a+=clamp(angDiff(e.a,Math.atan2(e.vy,e.vx)),-5*dt,5*dt);return true}
+function dropPod(x,y){const ks=Object.keys(fr.cargo).filter(k=>fr.cargo[k]>=1);if(!ks.length)return;let k=ks[0],best=0;for(const c of ks){const v=(QUEST[c]?50:baseVal(c))*Math.random();if(v>best){best=v;k=c}}
+  const q=Math.min(Math.floor(fr.cargo[k]),Math.max(1,Math.round(cargoCap()*.08)));fr.cargo[k]-=q;if(fr.cargo[k]<.01)delete fr.cargo[k];
+  const a=rand(0,TAU);pods.push({x,y,vx:Math.cos(a)*rand(90,160),vy:Math.sin(a)*rand(90,160),k,q,t:0,a:rand(0,TAU),taken:false,gone:false,by:null});floatText(x,y-24,'POD LOST!','#ffb347',14)}
+function updatePods(dt){for(const p of pods){if(p.gone)continue;if(p.taken&&p.by){p.x=p.by.x;p.y=p.by.y;continue}p.t+=dt;p.a+=dt;p.vx*=1-1.1*dt;p.vy*=1-1.1*dt;p.x=clamp(p.x+p.vx*dt,-HALF,HALF);p.y=clamp(p.y+p.vy*dt,-HALF,HALF);
+    if(ship&&!ship.dead&&Math.hypot(ship.x-p.x,ship.y-p.y)<S.r+18){const take=Math.min(p.q,Math.floor(holdRoom()));if(take>0){fr.cargo[p.k]=(fr.cargo[p.k]||0)+take;p.q-=take;sfx.pu();floatText(p.x,p.y,'+'+take+' '+itemName(p.k),itemCol(p.k),13);if(p.q<=0)p.gone=true}}}
+  pods=pods.filter(p=>!p.gone)}
+function drawPods(t){for(const p of pods){if(!vis(p.x,p.y))continue;const c=itemCol(p.k);ctx.save();ctx.translate(p.x,p.y+(p.taken?-18:0));ctx.globalCompositeOperation='lighter';drawGlow(0,0,26,c,.5+.2*Math.sin(t*.008));ctx.globalCompositeOperation='source-over';
+    ctx.rotate(p.a);ctx.fillStyle='#2a3242';ctx.strokeStyle=c;ctx.lineWidth=2;ctx.fillRect(-8,-8,16,16);ctx.strokeRect(-8,-8,16,16);ctx.beginPath();ctx.moveTo(-8,0);ctx.lineTo(8,0);ctx.stroke();ctx.restore()}}
 function spawnEnemyKind(kind){let x,y;if(WORLD>3000){const T=rig&&!rig.dead?rig:ship&&!ship.dead?ship:{x:0,y:0},a=rand(0,TAU),d=rand(850,1100);x=clamp(T.x+Math.cos(a)*d,-HALF+60,HALF-60);y=clamp(T.y+Math.sin(a)*d,-HALF+60,HALF-60)}else[x,y]=edgePoint(550);const grp=kind==='kamikaze'?2+(Math.random()<.4?1:0):1;
-  for(let i=0;i<grp;i++)enemies.push(makeEnemy(kind,x+rand(-40,40),y+rand(-40,40)));sfx.warpIn();
+  for(let i=0;i<grp;i++){const e=makeEnemy(kind,x+rand(-40,40),y+rand(-40,40));if(cur&&cur.raid&&kind!=='kamikaze'&&Math.random()<.6)e.grab=true;enemies.push(e)}sfx.warpIn();
   addPart({k:'ring',x,y,vx:0,vy:0,life:.7,max:.7,size:80,color:'#c77dff'});addPart({k:'flash',x,y,vx:0,vy:0,life:.4,max:.4,size:60,color:'#c77dff'})}
 
 function updateMission(dt){const n=level;
@@ -1480,7 +1671,7 @@ function updateEnemies(dt,playing){const n=level;
     const shoot=(a,sp,dmg,extra)=>ebullets.push(Object.assign({x:e.x+Math.cos(a)*(e.r+4),y:e.y+Math.sin(a)*(e.r+4),vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:2.6,dmg},extra||{}));
     const steer=(ax,ay,acc,mx)=>{e.vx+=ax*acc*dt;e.vy+=ay*acc*dt;const s=Math.hypot(e.vx,e.vy);if(s>mx){e.vx*=mx/s;e.vy*=mx/s}};
     const face=(rate)=>{e.a+=clamp(angDiff(e.a,Math.atan2(dy,dx)),-rate*dt,rate*dt)};
-    switch(e.kind){
+    if(cur&&cur.raid&&e.grab&&raidGrab(e,dt,steer,n)){}else switch(e.kind){
     case 'drone':{let ax=0,ay=0;if(d>330){ax=dx/d;ay=dy/d}else if(d<200){ax=-dx/d;ay=-dy/d}ax+=-dy/d*e.orbit*.8;ay+=dx/d*e.orbit*.8;steer(ax,ay,280,200+n*3);face(5);
       e.fireT-=dt;if(e.fireT<=0&&d<620&&T&&clearT<0){e.fireT=Math.max(.9,1.9-n*.035)+rand(0,.6);shoot(Math.atan2(dy,dx)+rand(-.08,.08),360,7+n*.8);sfx.eshot()}break}
     case 'gunship':{let ax=0,ay=0;if(d>420){ax=dx/d;ay=dy/d}else if(d<300){ax=-dx/d;ay=-dy/d}ax+=-dy/d*e.orbit*.5;ay+=dx/d*e.orbit*.5;steer(ax,ay,160,130);face(2.5);
@@ -1607,6 +1798,7 @@ function render(t){
   // enemies
   for(const e of enemies){if(!vis(e.x,e.y)&&!e.bm&&!(e.aim>0)&&!e.beamOn)continue;drawEnemy(e,t)}
   // ship
+  if(pods.length)drawPods(t);
   if(exitGate)drawExitGate(t);
   if(ship&&!ship.dead)drawShip(t);
   // additive fx
@@ -1775,7 +1967,7 @@ function drawHUD(t){const m=12,small=SW<500,w=small?132:184;
   for(let i=0;i<lives;i++){ctx.save();ctx.translate(m+8+i*18,m+88);ctx.rotate(-Math.PI/2);ctx.fillStyle='#c8d3e2';ctx.beginPath();ctx.moveTo(8,0);ctx.lineTo(-6,-6);ctx.lineTo(-3,0);ctx.lineTo(-6,6);ctx.closePath();ctx.fill();ctx.restore()}
   // mission line
   let ml='';if(mission==='clear')ml=clearT>=0?'Job done · mine on or leave':fieldGoal?`Collect ore ${Math.min(fieldOre,fieldGoal)} / ${fieldGoal}`:`Hostiles ${enemies.length+spawnQ.length} · exit gate open`;
-  else if(mission==='ambush')ml=`Pirate ambush · Hostiles ${enemies.length+spawnQ.length}`;
+  else if(mission==='ambush'){const fp=pods.filter(p=>!p.taken).length;ml=`${cur&&cur.raid?'Pirate raid':'Pirate ambush'} · Hostiles ${enemies.length+spawnQ.length}${fp?` · ${fp} pod${fp>1?'s':''} adrift`:''}`}
   else if(mission==='quota')ml=`Quota ${fmt(Math.min(quotaGot,quota))} / ${fmt(quota)} · ${mmss(missionT)}`;
   else if(mission==='defend')ml=`Protect the rig · ${mmss(missionT)}`;
   else if(mission==='escort')ml=`Escort the hauler · ${rig?Math.min(100,Math.floor(rig.done/rig.total*100)):100}%`;
@@ -1807,6 +1999,7 @@ function drawHUD(t){const m=12,small=SW<500,w=small?132:184;
   if(exitGate){const[x,y]=P(exitGate.x,exitGate.y);ctx.strokeStyle='#7fe8ff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,5,0,TAU);ctx.stroke();ctx.lineWidth=1}
   for(const a of asteroids){const[x,y]=P(a.x,a.y);ctx.fillStyle=a.kind==='volatile'?'#ff3b1f':a.kind==='cache'?'#ffd84a':TYPES[a.type].vein||'#9a948d';const s=a.kind==='lode'?a.r*k*1.6:a.kind==='cache'?3:a.tier*1.4;ctx.fillRect(x-s/2,y-s/2,s,s)}
   for(const o of ores){const[x,y]=P(o.x,o.y);ctx.fillStyle=TYPES[o.type].ore;ctx.fillRect(x-.5,y-.5,1.2,1.2)}
+  for(const p of pods){const[x,y]=P(p.x,p.y);ctx.fillStyle=itemCol(p.k);ctx.fillRect(x-2.5,y-2.5,5,5)}
   for(const p of pus){const[x,y]=P(p.x,p.y);ctx.fillStyle=PU[p.type].c;ctx.fillRect(x-1.5,y-1.5,3,3)}
   for(const e of enemies){const[x,y]=P(e.x,e.y);ctx.fillStyle='#ff4a4a';const s=e.boss?5:2.5;ctx.fillRect(x-s/2,y-s/2,s,s)}
   if(ship&&!ship.dead){const[x,y]=P(ship.x,ship.y);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,2.4,0,TAU);ctx.fill()}
@@ -1849,9 +2042,9 @@ function frame(now){const dt=Math.min(1/30,(now-last)/1000);last=now;
 
 // ================= overlays =================
 const ov=document.getElementById('ov');
-function showOv(html){if(typeof SY!=='undefined'&&SY.deferred&&canAsk()&&!SY.busy&&!SY.asking){SY.deferred=false;setTimeout(()=>syncNow(false),400)}
+function showOv(html){ov.classList.remove('scene');if(typeof SY!=='undefined'&&SY.deferred&&canAsk()&&!SY.busy&&!SY.asking){SY.deferred=false;setTimeout(()=>syncNow(false),400)}
   ov.innerHTML=`<div class="panel">${html}</div>`;ov.classList.add('show');ov.querySelector('.panel').scrollTop=0;document.body.classList.remove('playing','paused');laserSound(false)}
-function hideOv(){ov.classList.remove('show');ov.innerHTML='';document.body.classList.remove('paused')}
+function hideOv(){ov.classList.remove('show','scene');ov.innerHTML='';document.body.classList.remove('paused')}
 const totalStars=()=>Object.values(stars).reduce((s,v)=>s+v,0);
 // the real game's save (same website, keys without the dev_ prefix); read only, never written
 function realSave(){if(!DEV)return null;try{const sv=JSON.parse(localStorage.getItem('orerush2_save'));return sv&&sv.v===2?sv:null}catch(e){return null}}
@@ -1899,6 +2092,7 @@ function endLevel(){state='summary';const st=levelStats,n=level,loc=cur||storyLo
   <span class="total">Paid now</span><span class="v total credits">${fmt(st.bonus+missionBonus+starBonus+sectorReward+st.cash)} cr</span>
   <span>Cargo hold</span><span class="v">${Math.floor(cargoUsed())} / ${cargoCap()}</span>
   ${stolen?`<span>Ore stolen by scavengers</span><span class="v" style="color:#ff7a5a">${stolen}</span>`:''}
+  ${podsLost?`<span>Cargo stolen by pirates</span><span class="v" style="color:#ff7a5a">${podsLost} units</span>`:''}
   <span>Asteroids broken</span><span class="v">${st.rocks}</span>${st.kills?`<span>Pirates destroyed</span><span class="v">${st.kills}</span>`:''}</div>
   <div class="btns"><button class="btn" data-act="sysmap">Back to the system map</button></div>`)}
 function showFail(){state='failed';const loc=cur,part=mission==='quota'?Math.round(rushFee(level)*clamp(quotaGot/quota,0,1)*RUSH_PARTIAL):0;credits+=part;score+=part;endFlight();saveGame();
@@ -1975,13 +2169,13 @@ function showShop(){state='shop';computeStats();const n=level;let cards='';
     cards+=`<div class="card"><div class="ct">Fuel</div><div class="cd">${fr.fuel} / ${FUEL_MAX} jumps. ${fmt(fuelPrice())} cr per jump.</div><div class="bb"><button data-act="refuelShop" ${fr.fuel>=FUEL_MAX||credits<fuelPrice()?'disabled':''}>${fr.fuel>=FUEL_MAX?'Full':'Refuel · '+fmt(fuelPrice()*(FUEL_MAX-fr.fuel))+' cr'}</button></div></div>`;
     cards+=`<div class="card"><div class="ct">Nova Bomb</div><div class="cd">Shockwave that wrecks everything nearby and clears enemy fire. You have ${bombs} (max 5).</div><div class="bb"><button data-act="nova" ${bombs>=5||credits<novaCost?'disabled':''}>${bombs>=5?'Max':fmt(novaCost)+' cr'}</button></div></div>`}
   const miss=hull<S.hullMax*.7;
-  showOv(`<div class="shophead"><h2 style="margin:0">Shipyard</h2><span class="credits" style="font-size:20px">${fmt(credits)} cr</span></div>
+  (fr?(h=>sceneOv('shipyard',h)):showOv)(`<div class="shophead"><h2 style="margin:0">Shipyard</h2><span class="credits" style="font-size:20px">${fmt(credits)} cr</span></div>
   <div class="tabs">${[['weapons','Weapons'],['systems','Systems'],['ships','Ships'],['belt','Belt'],['services','Dock'+(miss?' ⚠':'')]].map(([k,l])=>`<button data-tab="${k}" class="${shopTab===k?'on':''}">${l}</button>`).join('')}</div>
   <div class="grid">${cards}</div>
-  <div class="btns"><button class="btn" data-act="next">Back to the station</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button><button class="btn alt" data-act="menu">Save &amp; quit to menu</button></div>`)}
+  <div class="btns"><button class="btn" data-act="area" data-v="concourse">Back to the concourse</button><button class="btn alt" data-act="transfer">Transfer save (export / import)</button><button class="btn alt" data-act="menu">Save &amp; quit to menu</button></div>`)}
 
 ov.addEventListener('click',e=>{initAudio();const b=e.target.closest('button');if(!b||b.disabled)return;const D=b.dataset;
-  const keepScroll=()=>{const p=ov.querySelector('.panel'),s=p?p.scrollTop:0;showShop();const p2=ov.querySelector('.panel');if(p2)p2.scrollTop=s};
+  const keepScroll=()=>{const p=ov.querySelector('.stn-body,.panel'),s=p?p.scrollTop:0;showShop();const p2=ov.querySelector('.stn-body,.panel');if(p2)p2.scrollTop=s};
   if(D.tab){shopTab=D.tab;sfx.click();showShop();return}
   if(D.buy){const u=UPG.find(x=>x.id===D.buy),c=upgCost(u,upg[D.buy]);if(credits>=c&&upg[D.buy]<u.max&&level>=(UPG_REQ[upg[D.buy]+1]||0)){credits-=c;const om=S.hullMax;upg[D.buy]++;computeStats();if(D.buy==='hull')hull+=S.hullMax-om;sfx.buy();saveGame();keepScroll()}return}
   if(D.wbuy){const w=WEAPONS.find(x=>x.id===D.wbuy);if(credits>=w.cost&&level>=(w.req||0)){credits-=w.cost;wl[w.id]=0;weapon=w.id;sfx.buy();saveGame();keepScroll()}return}
